@@ -2,21 +2,20 @@ package main
 
 import (
 	"bytes"
-
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"crypto/rsa"
 	rand "crypto/rand"
   "encoding/pem"
 	"math/big"
-	//"fmt"
-	//"os"
+	"fmt"
+	"io/ioutil"
+	"path"
 	"time"
 	"log"
 	"flag"
 	"net"
-	//"k8s.io/client-go/kubernetes"
-	//"k8s.io/client-go/rest"
+	"strings"
 )
 
 var (
@@ -30,6 +29,7 @@ var (
 	streetAddress				string
 	postalCode					string
 	clusterDomain     	string
+	certDir 					  string
 	hostname            string
 	namespace           string
 	podIP               string
@@ -38,11 +38,9 @@ var (
 	serviceNames        string
 	subdomain           string
 	caDuration					int
-	selfSigned          bool    // could make it either use k8s api to sign or completely self-sign
 )
 
 func main() {
-	flag.StringVar(&additionalDNSNames, "additional-dnsnames", "", "additional dns names; comma separated")
 	flag.StringVar(&commonName, "common-name", "", "Common Name for the certificate")
 	flag.StringVar(&country, "country", "", "Country for the certificate")
 	flag.StringVar(&locality, "locality", "", "Locality for the certificate")
@@ -51,6 +49,9 @@ func main() {
 	flag.StringVar(&province, "province", "", "Province for the certificate")
 	flag.StringVar(&streetAddress, "street-address", "", "Street Address for the certificate")
 	flag.StringVar(&postalCode, "postal-code", "", "Postal Code for the certificate")
+	flag.IntVar(&caDuration, "ca-duration", 10, "number of years duration of the self-signed CA certificate, default 10")
+	flag.StringVar(&certDir, "cert-dir", "/etc/tls", "The directory where the TLS certs should be written")
+	flag.StringVar(&additionalDNSNames, "additional-dnsnames", "", "additional dns names; comma separated")
 	flag.StringVar(&clusterDomain, "cluster-domain", "cluster.local", "Kubernetes cluster domain")
 	flag.StringVar(&hostname, "hostname", "", "hostname as defined by pod.spec.hostname")
 	flag.StringVar(&namespace, "namespace", "", "namespace as defined by pod.metadata.namespace")
@@ -59,10 +60,9 @@ func main() {
 	flag.StringVar(&serviceIPs, "service-ips", "", "service ips as defined by service.spec.clusterIP")
 	flag.StringVar(&serviceNames, "service-names", "", "service names that resolve to this Pod; comma separated")
 	flag.StringVar(&subdomain, "subdomain", "", "subdomain as defined by pod.spec.subdomain")
-	flag.IntVar(&caDuration, "ca-duration", 10, "number of years duration of the self-signed CA certificate, default 10")
-	flag.BoolVar(&selfSigned, "self-signed", false, "whether to self-sign the certificate rather than default k8s CA signature")
 	flag.Parse()
 
+	log.Println("self-signed certificate requested with the following information:")
 	log.Printf("commonName: %s", commonName)
 	log.Printf("country: %s", country)
 	log.Printf("locality: %s", locality)
@@ -77,198 +77,133 @@ func main() {
 	log.Printf("service-names: %s",serviceNames)
 	log.Printf("subdomain: %s",subdomain)
 	log.Printf("ca-duration: %d",caDuration)
-	log.Printf("self-signed: %t",selfSigned)
+	log.Printf("cert-dir: %s",certDir)
 
 
-	// generate the tls key to be used by the deployment
-	tlsKey, err := rsa.GenerateKey(rand.Reader, 1024)
-	if err != nil {
-		log.Fatalf("unable to genarate the private tls key: %s", err)
+	// define the CA
+	ca := &x509.Certificate{
+		SerialNumber: big.NewInt(1000),
+		Subject: pkix.Name{
+			CommonName: commonName,
+			Organization:  			[]string{organization},
+			OrganizationalUnit: []string{organizationalUnit},
+			Country:       			[]string{country},
+			Province:      			[]string{province},
+			Locality:      			[]string{locality},
+			StreetAddress: 			[]string{streetAddress},
+			PostalCode:    			[]string{postalCode},
+		},
+		NotBefore:             time.Now(),
+		NotAfter:              time.Now().AddDate(caDuration, 0, 0),
+		IsCA:                  true,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
+		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
+		BasicConstraintsValid: true,
 	}
-	pemTlsKey := pem.EncodeToMemory(&pem.Block{
+
+	// generate the CA private key
+	caPrivKey, err := rsa.GenerateKey(rand.Reader, 4096)
+	if err != nil {
+		log.Printf("failed to generate private key with err %s", err)
+	}
+
+	// PEM encode the CA private key
+	caPrivKeyPEM := new(bytes.Buffer)
+	pem.Encode(caPrivKeyPEM, &pem.Block{
 		Type:  "RSA PRIVATE KEY",
-		Bytes: x509.MarshalPKCS1PrivateKey(tlsKey),
+		Bytes: x509.MarshalPKCS1PrivateKey(caPrivKey),
 	})
 
-	log.Printf("caPrivKeyPEM: %s", pemTlsKey)
-
-	// create the certificate request
-	ipaddresses := getIPs(podIP, serviceIPs)
-	dnsNames := getDNSNames(additionalDNSNames, serviceNames, hostname, namespace, podName, subdomain, clusterDomain)
-	
-  if selfSigned {
-		// create the CA certificate
-
-		// CA certificate template
-		certificateTemplate := x509.Certificate{
-			SerialNumber: big.NewInt(1),
-			Subject: pkix.Name{
-				CommonName: commonName,
-				Country:    []string{country},
-				Locality:   []string{locality},
-				Organization: []string{organization},
-				OrganizationalUnit: []string{organizationalUnit},
-				Province: []string{province},
-				StreetAddress: []string{streetAddress},
-				PostalCode:  []string{postalCode},
-			},
-			NotBefore:             time.Now(),
-			NotAfter:              time.Now().AddDate(caDuration,0,0),
-			IsCA:                  true,
-			KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
-			ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
-			BasicConstraintsValid: true,
-		}
-
-		// generate a private key for the CA
-		caPrivKey, err := rsa.GenerateKey(rand.Reader, 4096)
-		if err != nil {
-			log.Printf("failed with err %s", err)
-		}
-		// pem encode the CA private key
-		caPrivKeyPEM := new(bytes.Buffer)
-		pem.Encode(caPrivKeyPEM, &pem.Block{
-			Type:  "RSA PRIVATE KEY",
-			Bytes: x509.MarshalPKCS1PrivateKey(caPrivKey),
-		})
-
-		// create the CA certificate
-		certificate, err := x509.CreateCertificate(rand.Reader, &certificateTemplate, &certificateTemplate, &caPrivKey.PublicKey, caPrivKey)
-		if err != nil {
-			log.Printf("failed with err %s", err)
-		}
-		// pem encode the CA certificate
-		certificatePEM := new(bytes.Buffer)
-		pem.Encode(certificatePEM, &pem.Block{
-			Type:  "CERTIFICATE",
-			Bytes: certificate,
-		})
-
-		// generate the certificate for the CA to sign
-
-		log.Printf("certificatePEM: %s", certificatePEM)
-	} else {
-		// generate a certificate signed by the k8s
-
+	// write the CA private key to the cert directory
+	caTlsKeyFile := path.Join(certDir, "tls.key")
+	if err := ioutil.WriteFile(caTlsKeyFile, caPrivKeyPEM.Bytes(), 0644); err != nil {
+		log.Fatalf("unable to write to %s: %s", caTlsKeyFile, err)
 	}
 
+	// create the CA certificate
+	certificate, err := x509.CreateCertificate(rand.Reader, ca, ca, &caPrivKey.PublicKey, caPrivKey)
+	if err != nil {
+		log.Printf("failed to create CA certificate with err %s", err)
+	}
 
+	// PEM encode the CA certificate
+	caPEM := new(bytes.Buffer)
+	pem.Encode(caPEM, &pem.Block{
+		Type:  "CERTIFICATE",
+		Bytes: certificate,
+	})
 
-	// certificateRequestTemplate := x509.CertificateRequest{
-	// 	Subject: pkix.Name{
-	// 		CommonName: dnsNames[0],
-	// 	},
-	// 	SignatureAlgorithm: x509.SHA256WithRSA,
-	// 	DNSNames:           dnsNames,
-	// 	IPAddresses:        ipaddresses,
-	// }
+	// write the CA cert to the cert directory
+	caCertFile := path.Join(certDir, "ca.crt")
+	if err := ioutil.WriteFile(caCertFile, caPEM.Bytes(), 0644); err != nil {
+		log.Fatalf("unable to write to %s: %s", caCertFile, err)
+	}
 
+	// log.Printf("CA PEM: %s", caPEM.String())
+	// log.Printf("CA Private Key PEM: %s", caPrivKeyPEM.String())
 
-	// certificateSigningRequestNamwe := "publications-dev-slp"
-	// config, err := rest.InClusterConfig()
-	// clientset, err := kubernetes.NewForConfig(config)
-	// k8s := clientset.CoreV1()
+	// define the certificate to be signed
+	ipaddresses := getIPs(podIP, serviceIPs)
+	dnsNames := getDNSNames(additionalDNSNames, serviceNames, podIP, hostname, subdomain, namespace, clusterDomain)
+	log.Printf("IP Addresses: %s", ipaddresses)
+	log.Printf("DNS Names: %s", dnsNames)
+	cert := &x509.Certificate{
+		SerialNumber: big.NewInt(1001),
+		Subject: pkix.Name{
+			CommonName: commonName,
+			Organization:  			[]string{organization},
+			OrganizationalUnit: []string{organizationalUnit},
+			Country:       			[]string{country},
+			Province:      			[]string{province},
+			Locality:      			[]string{locality},
+			StreetAddress: 			[]string{streetAddress},
+			PostalCode:    			[]string{postalCode},
+		},
+		NotBefore:             time.Now(),
+		NotAfter:              time.Now().AddDate(caDuration, 0, 0),
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
+		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
+		BasicConstraintsValid: true,
+	}
 
+	// create private key for the certificate to be signed
+	certPrivKey, err := rsa.GenerateKey(rand.Reader, 4096)
+	if err != nil {
+		log.Printf("failed to generate private key for certificate to be signed with err %s", err)
+	}
 
-	// csr := &certificates.CertificateSigningRequest{
-	// 	ObjectMeta: v1.ObjectMeta{
-	// 		Name: "tempcsr",
-	// 	},
-	// 	Spec: certificates.CertificateSigningRequestSpec{
-	// 		Groups: []string{
-	// 			"system:authenticated",
-	// 		},
-	// 		Request: pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE REQUEST", Bytes: bytes}),
-	// 	},
-	// }
-	// _, err = clientset.CertificatesV1beta1().CertificateSigningRequests().Create(context.TODO(), csr, v1.CreateOptions{})
+	// create the certificate to be signed
+	signedCertificate, err := x509.CreateCertificate(rand.Reader, cert, ca, &certPrivKey.PublicKey, caPrivKey)
+	if err != nil {
+		log.Printf("failed to sign private key for certificate to be signed with err %s", err)
+	}
 
+	// PEM encode the signed certificate
+	certPEM := new(bytes.Buffer)
+	pem.Encode(certPEM, &pem.Block{
+		Type:  "CERTIFICATE",
+		Bytes: signedCertificate,
+	})
 
+	// PEM encode the private key
+	certPrivKeyPEM := new(bytes.Buffer)
+	pem.Encode(certPrivKeyPEM, &pem.Block{
+		Type:  "RSA PRIVATE KEY",
+		Bytes: x509.MarshalPKCS1PrivateKey(certPrivKey),
+	})
 
+	// write the signed cert to the cert directory
+	certCertFile := path.Join(certDir, "tls.crt")
+	if err := ioutil.WriteFile(certCertFile, certPEM.Bytes(), 0644); err != nil {
+		log.Fatalf("unable to write to %s: %s", certCertFile, err)
+	}
 
+	// log.Printf("Certificate PEM: %s", certPEM.String())
+	// log.Printf("Certificate Private Key PEM: %s", certPrivKeyPEM.String())
 
-	// //Create CA
-	// ca := &x509.Certificate{
-	// 	SerialNumber: big.NewInt(2019),
-	// 	Subject: pkix.Name{
-	// 		Organization:  []string{"Company, INC."},
-	// 		Country:       []string{"US"},
-	// 		Province:      []string{""},
-	// 		Locality:      []string{"San Francisco"},
-	// 		StreetAddress: []string{"Golden Gate Bridge"},
-	// 		PostalCode:    []string{"94016"},
-	// 	},
-	// 	NotBefore:             time.Now(),
-	// 	NotAfter:              time.Now().AddDate(3, 0, 0),
-	// 	IsCA:                  true,
-	// 	ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
-	// 	KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
-	// 	BasicConstraintsValid: true,
-	// }
-
-
-
-	// // create certificate
-	// caBytes, err := x509.CreateCertificate(rand.Reader, ca, ca, &caPrivKey.PublicKey, caPrivKey)
-	// if err != nil {
-	// 	return err
-	// }
-
-	// // pem encode the certificate
-	// caPEM := new(bytes.Buffer)
-	// pem.Encode(caPEM, &pem.Block{
-	// 	Type:  "CERTIFICATE",
-	// 	Bytes: caBytes,
-	// })
-
-
-
-	// // create the certificate to be signed
-	// cert := &x509.Certificate{
-	// 	SerialNumber: big.NewInt(1658),
-	// 	Subject: pkix.Name{
-	// 		Organization:  []string{"Company, INC."},
-	// 		Country:       []string{"US"},
-	// 		Province:      []string{""},
-	// 		Locality:      []string{"San Francisco"},
-	// 		StreetAddress: []string{"Golden Gate Bridge"},
-	// 		PostalCode:    []string{"94016"},
-	// 	},
-	// 	// IPAddresses:  []net.IP{net.IPv4(127, 0, 0, 1), net.IPv6loopback},
-	// 	NotBefore:    time.Now(),
-	// 	NotAfter:     time.Now().AddDate(10, 0, 0),
-	// 	SubjectKeyId: []byte{1, 2, 3, 4, 6},
-	// 	ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
-	// 	KeyUsage:     x509.KeyUsageDigitalSignature,
-	// }
-
-	// // create priviate key for the certificate
-	// certPrivKey, err := rsa.GenerateKey(rand.Reader, 4096)
-	// if err != nil {
-	// 	return err
-	// }
-
-	// // sign the certificate with the previously created private key
-	// certBytes, err := x509.CreateCertificate(rand.Reader, cert, ca, &certPrivKey.PublicKey, caPrivKey)
-	// if err != nil {
-	// 	return err
-	// }
-
-	// // pem encode the certificate and private key
-	// certPEM := new(bytes.Buffer)
-	// pem.Encode(certPEM, &pem.Block{
-	// 	Type:  "CERTIFICATE",
-	// 	Bytes: certBytes,
-	// })
-
-	// certPrivKeyPEM := new(bytes.Buffer)
-	// pem.Encode(certPrivKeyPEM, &pem.Block{
-	// 	Type:  "RSA PRIVATE KEY",
-	// 	Bytes: x509.MarshalPKCS1PrivateKey(certPrivKey),
-	// })
 }
 
-func getIPs(podIP string, ) []net.IP {
+func getIPs(podIP, serviceIPs string, ) []net.IP {
 	// include parameter passed ips = pod.status.podIP
 	ip := net.ParseIP(podIP)
 	if ip.To4() == nil && ip.To16() == nil {
@@ -287,5 +222,49 @@ func getIPs(podIP string, ) []net.IP {
 		}
 		ipaddresses = append(ipaddresses, ip)
 	}
+
+	log.Printf("pod-ips: %s",ipaddresses)
 	return ipaddresses
+}
+
+func getDNSNames(additionalDNSNames, serviceNames, ip, hostname, subdomain, namespace, clusterDomain string) []string {
+	ns := []string{podDomainName(ip, namespace, clusterDomain)}
+	if hostname != "" && subdomain != "" {
+		ns = append(ns, podHeadlessDomainName(hostname, subdomain, namespace, clusterDomain))
+	}
+
+	for _, n := range strings.Split(additionalDNSNames, ",") {
+		if n == "" {
+			continue
+		}
+		ns = append(ns, n)
+	}
+
+	for _, n := range strings.Split(serviceNames, ",") {
+		if n == "" {
+			continue
+		}
+		ns = append(ns, serviceDomainName(n, namespace, clusterDomain))
+	}
+
+	log.Printf("dns-names: %s",ns)
+	return ns
+}
+
+func serviceDomainName(name, namespace, domain string) string {
+	log.Printf("service-domain-name: %s", fmt.Sprintf("%s.%s.%s", name, namespace, domain))
+	return fmt.Sprintf("%s.%s.svc.%s", name, namespace, domain)
+}
+
+func podDomainName(ip, namespace, domain string) string {
+	log.Printf("pod-domain-name: %s", fmt.Sprintf("%s.%s.%s", ip, namespace, domain))
+	return fmt.Sprintf("%s.%s.pod.%s", strings.Replace(ip, ".", "-", -1), namespace, domain)
+}
+
+func podHeadlessDomainName(hostname, subdomain, namespace, domain string) string {
+	if hostname == "" || subdomain == "" {
+		return ""
+	}
+	log.Printf("pod-headless-domain-name: %s", fmt.Sprintf("%s.%s.%s.%s", hostname, subdomain, namespace, domain))
+	return fmt.Sprintf("%s.%s.%s.svc.%s", hostname, subdomain, namespace, domain)
 }

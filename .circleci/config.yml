@@ -5,6 +5,7 @@ orbs:
   op: twdps/onepassword@1.0.0
   cosign: twdps/cosign@0.1.0
   win: circleci/windows@4.1.1
+  kube: twdps/kube-ops@dev:latest
 
 # =================================== global pipeline parameters
 
@@ -41,6 +42,58 @@ executors:
     docker:
       - image: i386/buildpack-deps
 
+commands:
+
+  set-environment:
+    parameters:
+      registry: 
+        description: dtr compatible registry
+        type: string
+        default: docker.io
+      registry-login:
+        type: string
+        default: DOCKER_LOGIN
+      registry-password:
+        type: string
+        default: DOCKER_PASSWORD
+    steps:
+      - op/install-op:
+          os: Ubuntu
+      - op/env:
+          env-file: op.env
+      - kube/packages:
+          use-sudo: true
+          kubectl-version: 1.24.4
+          kind-version: 0.14.0
+      # - kube/packages:
+      #     use-sudo: false
+      #     bats-version: 1.7.0
+      - run:
+          name: Confirm Docker registry environment variables are configured and correct
+          command: |
+            if [ ! ${<< parameters.registry-login >>-} ]; then
+              echo "registry access username is not set, will not be able to push image."
+              exit 1
+            fi
+            if [ ! ${<< parameters.registry-password >>-} ]; then
+              echo "registry access password is not set, will not be able to push image."
+              exit 1
+            fi
+      - run:
+          name: Confirm Docker registry login
+          command: |
+            echo 'write to .docker/config.json is secure in ephemeral runtime environment'
+            echo ${<< parameters.registry-password >>} | docker login -u ${<< parameters.registry-login >>} --password-stdin << parameters.registry >>
+
+  integration-tests:
+    steps:
+      - run:
+          name: launch ci local cluster
+          command: kind create cluster --name test
+      - run:
+          name: deploy tls test app
+          command: kubectl apply -f test/deployment.yaml
+
 jobs:
 
   static-analysis:
@@ -48,9 +101,7 @@ jobs:
     steps:
       - checkout
       - setup_remote_docker
-      - op/install-op:
-          os: Ubuntu
-      - op/env
+      - set-environment
       - run:
           name: static code analysis
           command: |
@@ -62,8 +113,14 @@ jobs:
             curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.46.2
             golangci-lint run ./...
       - run:
-          name: build dev test image
+          name: build and push ci image
+          command: |
+            make build
+            make push
+      - run:
+          name: test ci image
           command: make build
+      - integration-tests
 
   # release:
   #   executor: go-builder

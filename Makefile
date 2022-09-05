@@ -17,3 +17,7 @@ build:
 	GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o $(OUTPUT_DIR)/$(OUTPUT_BIN)
 	chmod +x $(OUTPUT_DIR)/$(OUTPUT_BIN)
 	docker build -t docker.io/twdps/certificate-init-container:$(REVISION) .
+
+.PHONY: push
+push:
+	docker push docker.io/twdps/certificate-init-container:$(REVISION)

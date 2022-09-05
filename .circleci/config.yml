@@ -102,7 +102,7 @@ jobs:
     shell: /bin/bash -eo pipefail
     steps:
       - checkout
-      - setup_remote_docker
+      #- setup_remote_docker
       - set-environment
       - run:
           name: static code analysis

@@ -2,96 +2,94 @@ package main
 
 import (
 	"bytes"
+	"crypto/rand"
+	"crypto/rsa"
 	"crypto/x509"
 	"crypto/x509/pkix"
-	"crypto/rsa"
-	rand "crypto/rand"
-  "encoding/pem"
-	"math/big"
+	"encoding/pem"
 	"fmt"
-	"io/ioutil"
-	"path"
-	"time"
 	"log"
-	"flag"
-	"net"
 	"strings"
+	"path"
+	"math/big"
+	"os"
+	"time"
+	"flag"
 )
 
 var (
-	additionalDNSNames  string
 	commonName          string
-	country						 	string
-	locality            string  
-	organization				string
+	organization		string
 	organizationalUnit  string
-	province						string
-	streetAddress				string
-	postalCode					string
-	clusterDomain     	string
-	certDir 					  string
-	hostname            string
-	namespace           string
-	podIP               string
-	podName             string
-	serviceIPs          string
+	country				string
+	province			string
+	locality            string  
+	streetAddress		string
+	postalCode			string
+	caDuration			int
+	additionalDNSNames  string
 	serviceNames        string
+	hostname            string
 	subdomain           string
-	caDuration					int
+	namespace           string
+	clusterDomain     	string
+	certDir 			string
 )
 
 func main() {
+	var certificatePEM, privateKeyPEM *bytes.Buffer
+
 	flag.StringVar(&commonName, "common-name", "", "Common Name for the certificate")
-	flag.StringVar(&country, "country", "", "Country for the certificate")
-	flag.StringVar(&locality, "locality", "", "Locality for the certificate")
 	flag.StringVar(&organization, "organization", "", "Organization for the certificate")
 	flag.StringVar(&organizationalUnit, "organizational-unit", "", "Organizational Unit for the certificate")
+	flag.StringVar(&country, "country", "", "Country for the certificate")
 	flag.StringVar(&province, "province", "", "Province for the certificate")
+	flag.StringVar(&locality, "locality", "", "Locality for the certificate")
 	flag.StringVar(&streetAddress, "street-address", "", "Street Address for the certificate")
 	flag.StringVar(&postalCode, "postal-code", "", "Postal Code for the certificate")
 	flag.IntVar(&caDuration, "ca-duration", 10, "number of years duration of the self-signed CA certificate, default 10")
-	flag.StringVar(&certDir, "cert-dir", "/etc/tls", "The directory where the TLS certs should be written")
 	flag.StringVar(&additionalDNSNames, "additional-dnsnames", "", "additional dns names; comma separated")
-	flag.StringVar(&clusterDomain, "cluster-domain", "cluster.local", "Kubernetes cluster domain")
-	flag.StringVar(&hostname, "hostname", "", "hostname as defined by pod.spec.hostname")
-	flag.StringVar(&namespace, "namespace", "", "namespace as defined by pod.metadata.namespace")
-	flag.StringVar(&podIP, "pod-ip", "", "pod ip as defined by pod.status.podIP")
-	flag.StringVar(&podName, "pod-name", "", "pod name as defined by pod.metadata.name")
-	flag.StringVar(&serviceIPs, "service-ips", "", "service ips as defined by service.spec.clusterIP")
 	flag.StringVar(&serviceNames, "service-names", "", "service names that resolve to this Pod; comma separated")
+	flag.StringVar(&hostname, "hostname", "", "hostname as defined by pod.spec.hostname")
 	flag.StringVar(&subdomain, "subdomain", "", "subdomain as defined by pod.spec.subdomain")
+	flag.StringVar(&namespace, "namespace", "", "namespace as defined by pod.metadata.namespace")
+	flag.StringVar(&clusterDomain, "cluster-domain", "cluster.local", "Kubernetes cluster domain")
+	flag.StringVar(&certDir, "cert-dir", "/etc/tls", "The directory where the TLS certs should be written")
 	flag.Parse()
 
 	log.Println("self-signed certificate requested with the following information:")
 	log.Printf("commonName: %s", commonName)
-	log.Printf("country: %s", country)
-	log.Printf("locality: %s", locality)
 	log.Printf("organization: %s", organization)
 	log.Printf("organizationalUnit: %s", organizationalUnit)
+	log.Printf("country: %s", country)
 	log.Printf("province: %s", province)
+	log.Printf("locality: %s", locality)
 	log.Printf("streetAddress: %s", streetAddress)
 	log.Printf("postalCode: %s", postalCode)
-	log.Printf("clusterdomain: %s",clusterDomain)
-	log.Printf("hostname: %s",hostname)
-	log.Printf("namespace: %s",namespace)
+	log.Printf("additionalDNSNames: %s", additionalDNSNames)
 	log.Printf("service-names: %s",serviceNames)
+	log.Printf("hostname: %s",hostname)
 	log.Printf("subdomain: %s",subdomain)
+	log.Printf("namespace: %s",namespace)
+	log.Printf("clusterdomain: %s",clusterDomain)
 	log.Printf("ca-duration: %d",caDuration)
 	log.Printf("cert-dir: %s",certDir)
 
+	dnsNames := getDNSNames(additionalDNSNames, serviceNames, hostname, subdomain, namespace, clusterDomain)
+	log.Printf("DNS Names: %s", dnsNames)
 
-	// define the CA
+	// define the Certificate Authority (CA) certificate
 	ca := &x509.Certificate{
 		SerialNumber: big.NewInt(1000),
 		Subject: pkix.Name{
-			CommonName: commonName,
-			Organization:  			[]string{organization},
+			CommonName: 		commonName,
+			Organization:  		[]string{organization},
 			OrganizationalUnit: []string{organizationalUnit},
-			Country:       			[]string{country},
-			Province:      			[]string{province},
-			Locality:      			[]string{locality},
-			StreetAddress: 			[]string{streetAddress},
-			PostalCode:    			[]string{postalCode},
+			Country:       		[]string{country},
+			Province:      		[]string{province},
+			Locality:      		[]string{locality},
+			StreetAddress: 		[]string{streetAddress},
+			PostalCode:    		[]string{postalCode},
 		},
 		NotBefore:             time.Now(),
 		NotAfter:              time.Now().AddDate(caDuration, 0, 0),
@@ -101,134 +99,86 @@ func main() {
 		BasicConstraintsValid: true,
 	}
 
-	// generate the CA private key
-	caPrivKey, err := rsa.GenerateKey(rand.Reader, 4096)
+	// define the certficate to be provided via this init container
+	cert := &x509.Certificate{
+		DNSNames:     dnsNames,
+		SerialNumber: big.NewInt(1001),
+		Subject: pkix.Name{
+			CommonName:   		commonName,
+			Organization:  		[]string{organization},
+			OrganizationalUnit: []string{organizationalUnit},
+			Country:       		[]string{country},
+			Province:      		[]string{province},
+			Locality:      		[]string{locality},
+			StreetAddress: 		[]string{streetAddress},
+			PostalCode:    		[]string{postalCode},
+		},
+		NotBefore:    time.Now(),
+		NotAfter:     time.Now().AddDate(caDuration, 0, 0),
+		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
+		KeyUsage:     x509.KeyUsageDigitalSignature,
+	}
+
+	// generate CA private key
+	caPrivateKey, err := rsa.GenerateKey(rand.Reader, 4096)
 	if err != nil {
-		log.Printf("failed to generate private key with err %s", err)
+		log.Fatalf("failed to generate CA private key with err %s", err)
 	}
 
-	// PEM encode the CA private key
-	caPrivKeyPEM := new(bytes.Buffer)
-	pem.Encode(caPrivKeyPEM, &pem.Block{
-		Type:  "RSA PRIVATE KEY",
-		Bytes: x509.MarshalPKCS1PrivateKey(caPrivKey),
-	})
-
-	// write the CA private key to the cert directory
-	caTlsKeyFile := path.Join(certDir, "tls.key")
-	if err := ioutil.WriteFile(caTlsKeyFile, caPrivKeyPEM.Bytes(), 0644); err != nil {
-		log.Fatalf("unable to write to %s: %s", caTlsKeyFile, err)
-	}
-
-	// create the CA certificate
-	certificate, err := x509.CreateCertificate(rand.Reader, ca, ca, &caPrivKey.PublicKey, caPrivKey)
+	// generate private key
+	privateKey, err := rsa.GenerateKey(rand.Reader, 4096)
 	if err != nil {
-		log.Printf("failed to create CA certificate with err %s", err)
+		log.Fatalf("failed to generate private key to be signed with err %s", err)
 	}
 
-	// PEM encode the CA certificate
-	caPEM := new(bytes.Buffer)
-	pem.Encode(caPEM, &pem.Block{
+	// create certificate, signing with the CA private key
+	certificate, err := x509.CreateCertificate(rand.Reader, cert, ca, &privateKey.PublicKey, caPrivateKey)
+	if err != nil {
+		log.Fatalf("failed to create signed private key with err %s", err)
+	}
+
+	// PEM encode the private key and certificate
+	certificatePEM = new(bytes.Buffer)
+	_ = pem.Encode(certificatePEM, &pem.Block{
 		Type:  "CERTIFICATE",
 		Bytes: certificate,
 	})
 
-	// write the CA cert to the cert directory
-	caCertFile := path.Join(certDir, "ca.crt")
-	if err := ioutil.WriteFile(caCertFile, caPEM.Bytes(), 0644); err != nil {
-		log.Fatalf("unable to write to %s: %s", caCertFile, err)
-	}
-
-	// log.Printf("CA PEM: %s", caPEM.String())
-	// log.Printf("CA Private Key PEM: %s", caPrivKeyPEM.String())
-
-	// define the certificate to be signed
-	ipaddresses := getIPs(podIP, serviceIPs)
-	dnsNames := getDNSNames(additionalDNSNames, serviceNames, podIP, hostname, subdomain, namespace, clusterDomain)
-	log.Printf("IP Addresses: %s", ipaddresses)
-	log.Printf("DNS Names: %s", dnsNames)
-	cert := &x509.Certificate{
-		SerialNumber: big.NewInt(1001),
-		Subject: pkix.Name{
-			CommonName: commonName,
-			Organization:  			[]string{organization},
-			OrganizationalUnit: []string{organizationalUnit},
-			Country:       			[]string{country},
-			Province:      			[]string{province},
-			Locality:      			[]string{locality},
-			StreetAddress: 			[]string{streetAddress},
-			PostalCode:    			[]string{postalCode},
-		},
-		NotBefore:             time.Now(),
-		NotAfter:              time.Now().AddDate(caDuration, 0, 0),
-		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
-		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
-		BasicConstraintsValid: true,
-	}
-
-	// create private key for the certificate to be signed
-	certPrivKey, err := rsa.GenerateKey(rand.Reader, 4096)
-	if err != nil {
-		log.Printf("failed to generate private key for certificate to be signed with err %s", err)
-	}
-
-	// create the certificate to be signed
-	signedCertificate, err := x509.CreateCertificate(rand.Reader, cert, ca, &certPrivKey.PublicKey, caPrivKey)
-	if err != nil {
-		log.Printf("failed to sign private key for certificate to be signed with err %s", err)
-	}
-
-	// PEM encode the signed certificate
-	certPEM := new(bytes.Buffer)
-	pem.Encode(certPEM, &pem.Block{
-		Type:  "CERTIFICATE",
-		Bytes: signedCertificate,
-	})
-
-	// PEM encode the private key
-	certPrivKeyPEM := new(bytes.Buffer)
-	pem.Encode(certPrivKeyPEM, &pem.Block{
+	privateKeyPEM = new(bytes.Buffer)
+	_ = pem.Encode(privateKeyPEM, &pem.Block{
 		Type:  "RSA PRIVATE KEY",
-		Bytes: x509.MarshalPKCS1PrivateKey(certPrivKey),
+		Bytes: x509.MarshalPKCS1PrivateKey(privateKey),
 	})
 
-	// write the signed cert to the cert directory
-	certCertFile := path.Join(certDir, "tls.crt")
-	if err := ioutil.WriteFile(certCertFile, certPEM.Bytes(), 0644); err != nil {
-		log.Fatalf("unable to write to %s: %s", certCertFile, err)
+	// write the signed certificate to the shared pod emptyDir
+	certificatePEMFile := path.Join(certDir, "tls.crt")
+	if err := os.WriteFile(certificatePEMFile, certificatePEM.Bytes(), 0644); err != nil {
+		log.Fatalf("unable to write private certificate to %s: %s", certificatePEMFile, err)
 	}
 
-	// log.Printf("Certificate PEM: %s", certPEM.String())
-	// log.Printf("Certificate Private Key PEM: %s", certPrivKeyPEM.String())
+	privateKeyPEMFile := path.Join(certDir, "tls.key")
+	if err := os.WriteFile(privateKeyPEMFile, privateKeyPEM.Bytes(), 0644); err != nil {
+		log.Fatalf("unable to write private key to %s: %s", privateKeyPEMFile, err)
+	}
+
+	// err = os.MkdirAll("/etc/webhook/certs/", 0666)
+	// if err != nil {
+	// 	log.Panic(err)
+	// }
+	// err = WriteFile("/etc/webhook/certs/tls.crt", serverCertPEM)
+	// if err != nil {
+	// 	log.Panic(err)
+	// }
+
+	// err = WriteFile("/etc/webhook/certs/tls.key", serverPrivKeyPEM)
+	// if err != nil {
+	// 	log.Panic(err)
+	// }
 
 }
 
-func getIPs(podIP, serviceIPs string, ) []net.IP {
-	// include parameter passed ips = pod.status.podIP
-	ip := net.ParseIP(podIP)
-	if ip.To4() == nil && ip.To16() == nil {
-		log.Fatal("invalid pod IP address")
-	}
-	// include localhost
-	ipaddresses := []net.IP{ip, net.ParseIP("127.0.0.1")}
-	// include serviceIPs
-	for _, s := range strings.Split(serviceIPs, ",") {
-		if s == "" {
-			continue
-		}
-		ip := net.ParseIP(s)
-		if ip.To4() == nil && ip.To16() == nil {
-			log.Fatal("invalid service IP address")
-		}
-		ipaddresses = append(ipaddresses, ip)
-	}
-
-	log.Printf("pod-ips: %s",ipaddresses)
-	return ipaddresses
-}
-
-func getDNSNames(additionalDNSNames, serviceNames, ip, hostname, subdomain, namespace, clusterDomain string) []string {
-	ns := []string{podDomainName(ip, namespace, clusterDomain)}
+func getDNSNames(additionalDNSNames, serviceNames, hostname, subdomain, namespace, clusterDomain string) []string {
+	var ns []string
 	if hostname != "" && subdomain != "" {
 		ns = append(ns, podHeadlessDomainName(hostname, subdomain, namespace, clusterDomain))
 	}
@@ -246,8 +196,6 @@ func getDNSNames(additionalDNSNames, serviceNames, ip, hostname, subdomain, name
 		}
 		ns = append(ns, serviceDomainName(n, namespace, clusterDomain))
 	}
-
-	log.Printf("dns-names: %s",ns)
 	return ns
 }
 
@@ -256,10 +204,6 @@ func serviceDomainName(name, namespace, domain string) string {
 	return fmt.Sprintf("%s.%s.svc.%s", name, namespace, domain)
 }
 
-func podDomainName(ip, namespace, domain string) string {
-	log.Printf("pod-domain-name: %s", fmt.Sprintf("%s.%s.%s", ip, namespace, domain))
-	return fmt.Sprintf("%s.%s.pod.%s", strings.Replace(ip, ".", "-", -1), namespace, domain)
-}
 
 func podHeadlessDomainName(hostname, subdomain, namespace, domain string) string {
 	if hostname == "" || subdomain == "" {
@@ -268,3 +212,18 @@ func podHeadlessDomainName(hostname, subdomain, namespace, domain string) string
 	log.Printf("pod-headless-domain-name: %s", fmt.Sprintf("%s.%s.%s.%s", hostname, subdomain, namespace, domain))
 	return fmt.Sprintf("%s.%s.%s.svc.%s", hostname, subdomain, namespace, domain)
 }
+
+// WriteFile writes data in the file at the given path
+// func WriteFile(filepath string, sCert *bytes.Buffer) error {
+// 	f, err := os.Create(filepath)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	defer f.Close()
+
+// 	_, err = f.Write(sCert.Bytes())
+// 	if err != nil {
+// 		return err
+// 	}
+// 	return nil
+// }

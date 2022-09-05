@@ -43,7 +43,7 @@ spec:
             - "--street-address '200 E Randolph St 25th Floor'"
             - "--postal-code 60601"
             - "--service-names opa-injection-admission-controller"
-            - "--namespace $(NAMESPACE)"
+            - "--namespace \$(NAMESPACE)"
             - "--cert-dir /etc/tls"            
 
           volumeMounts:

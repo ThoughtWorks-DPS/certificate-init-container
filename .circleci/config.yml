@@ -14,10 +14,10 @@ parameters:
     description: circleci context for all jobs
     type: string
     default: twdps-core-labs-team
-  go-version:
-    description: version for go-builder
+  machine-image:
+    description: circleci machine to use for operator build jobs
     type: string
-    default: 1.18.2
+    default: ubuntu-2204:2022.07.1
 
 on-push-main: &on-push-main
   branches:
@@ -97,7 +97,9 @@ commands:
 jobs:
 
   static-analysis:
-    executor: go-builder
+    machine:
+      image: << pipeline.parameters.machine-image >>
+    shell: /bin/bash -eo pipefail
     steps:
       - checkout
       - setup_remote_docker

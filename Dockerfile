@@ -16,5 +16,5 @@
 # CMD [ "certificate-init-container" ]
 
 FROM scratch
-COPY /certificate-init-container /
-ENTRYPOINT ["/certificate-init-container"]
+COPY ./certificate-init-container ./certificate-init-container
+ENTRYPOINT ["./certificate-init-container"]

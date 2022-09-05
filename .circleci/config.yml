@@ -16,7 +16,7 @@ parameters:
   go-version:
     description: version for go-builder
     type: string
-    default: 1.19.0
+    default: 1.18.2
 
 on-push-main: &on-push-main
   branches:

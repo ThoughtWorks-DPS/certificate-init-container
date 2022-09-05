@@ -94,10 +94,12 @@ commands:
     steps:
       - run:
           name: launch ci local cluster
-          command: kind create cluster --name test
+          command: kind create cluster --name test && sleep 10
       - run:
           name: deploy tls test app
-          command: kubectl apply -f test/deployment.yaml
+          command: |
+            kubectl apply -f test/deployment.yaml && sleep 5
+            kubectl get all -n ci-dev
 
 jobs:
 

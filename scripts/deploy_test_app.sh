@@ -1,3 +1,5 @@
+
+cat << EOF > deployment.yaml
 ---
 apiVersion: v1
 kind: Namespace
@@ -24,7 +26,7 @@ spec:
     spec:
       initContainers:
         - name: certificate-init-container
-          image: twdps/certificate-init-container:dev.cd9170de
+          image: twdps/certificate-init-container:dev.${CIRCLE_SHA1:0:7}
           imagePullPolicy: Always
           env:
             - name: NAMESPACE
@@ -67,3 +69,6 @@ spec:
       volumes:
         - name: tls
           emptyDir: {}
+EOF
+
+kubectl apply -f deployment.yaml

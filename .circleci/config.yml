@@ -98,7 +98,7 @@ commands:
       - run:
           name: deploy tls test app
           command: |
-            kubectl apply -f test/deployment.yaml && sleep 5
+            bash scripts/deploy_test_app.sh && sleep 5
             kubectl get all -n ci-dev && sleep 5
             kubectl get all -n ci-dev && sleep 5
             kubectl get all -n ci-dev && sleep 5

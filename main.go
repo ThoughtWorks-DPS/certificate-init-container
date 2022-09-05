@@ -151,6 +151,11 @@ func main() {
 	})
 
 	// write the signed certificate to the shared pod emptyDir
+	err = os.MkdirAll(certDir, 0666)
+	if err != nil {
+		log.Fatalf("unable to create folder %s: %s", certDir, err)
+	}
+
 	certificatePEMFile := path.Join(certDir, "tls.crt")
 	if err := os.WriteFile(certificatePEMFile, certificatePEM.Bytes(), 0644); err != nil {
 		log.Fatalf("unable to write private certificate to %s: %s", certificatePEMFile, err)
@@ -160,20 +165,6 @@ func main() {
 	if err := os.WriteFile(privateKeyPEMFile, privateKeyPEM.Bytes(), 0644); err != nil {
 		log.Fatalf("unable to write private key to %s: %s", privateKeyPEMFile, err)
 	}
-
-	// err = os.MkdirAll("/etc/webhook/certs/", 0666)
-	// if err != nil {
-	// 	log.Panic(err)
-	// }
-	// err = WriteFile("/etc/webhook/certs/tls.crt", serverCertPEM)
-	// if err != nil {
-	// 	log.Panic(err)
-	// }
-
-	// err = WriteFile("/etc/webhook/certs/tls.key", serverPrivKeyPEM)
-	// if err != nil {
-	// 	log.Panic(err)
-	// }
 
 }
 
@@ -212,18 +203,3 @@ func podHeadlessDomainName(hostname, subdomain, namespace, domain string) string
 	log.Printf("pod-headless-domain-name: %s", fmt.Sprintf("%s.%s.%s.%s", hostname, subdomain, namespace, domain))
 	return fmt.Sprintf("%s.%s.%s.svc.%s", hostname, subdomain, namespace, domain)
 }
-
-// WriteFile writes data in the file at the given path
-// func WriteFile(filepath string, sCert *bytes.Buffer) error {
-// 	f, err := os.Create(filepath)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	defer f.Close()
-
-// 	_, err = f.Write(sCert.Bytes())
-// 	if err != nil {
-// 		return err
-// 	}
-// 	return nil
-// }

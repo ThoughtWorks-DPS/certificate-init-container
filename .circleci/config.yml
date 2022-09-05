@@ -62,8 +62,8 @@ jobs:
             curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.46.2
             golangci-lint run ./...
       - run:
-          name: test goreleaser
-          command: curl -sfL https://goreleaser.com/static/run | bash
+          name: build dev test image
+          command: make build
 
   # release:
   #   executor: go-builder

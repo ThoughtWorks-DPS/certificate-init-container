@@ -58,7 +58,6 @@ commands:
         type: string
         default: DOCKER_PASSWORD
     steps:
-      - do/validate-docker-credentials
       - op/install-op:
           os: Ubuntu
       - op/env:
@@ -68,6 +67,7 @@ commands:
           command: |
             go install honnef.co/go/tools/cmd/staticcheck@latest
             curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $HOME/.go_workspace/bin v1.49.0
+      - do/validate-docker-credentials
       # - run:
       #     name: Confirm Docker registry environment variables are configured and correct
       #     command: |

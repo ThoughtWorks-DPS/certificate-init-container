@@ -98,7 +98,7 @@ commands:
       - run:
           name: deploy tls test app
           command: |
-            bash scripts/deploy_test_app.sh && sleep 15
+            bash scripts/deploy_test_app.sh && sleep 25
       - run:
           name: test for successful certificate creation
           command: bats test/certificate-init-container.bats

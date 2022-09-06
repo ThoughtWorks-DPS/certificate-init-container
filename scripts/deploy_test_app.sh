@@ -34,17 +34,17 @@ spec:
                 fieldRef:
                   fieldPath: metadata.namespace
           args:
-            - "--common-name opa-injection-admission-controller"
-            - "--organization 'Thoughtworks, Inc.'"
-            - "--organizational-unit EMPC"
-            - "--country USA"
-            - "--province Illinois"
-            - "--locality Chicago"
-            - "--street-address '200 E Randolph St 25th Floor'"
-            - "--postal-code 60601"
-            - "--service-names opa-injection-admission-controller"
-            - "--namespace \$(NAMESPACE)"
-            - "--cert-dir /etc/tls"            
+            - "--common-name=opa-injection-admission-controller"
+            - "--organization='Thoughtworks, Inc.'"
+            - "--organizational-unit=EMPC"
+            - "--country=USA"
+            - "--province=Illinois"
+            - "--locality=Chicago"
+            - "--street-address='200 E Randolph St 25th Floor'"
+            - "--postal-code=60601"
+            - "--service-names=opa-injection-admission-controller"
+            - "--namespace=\$(NAMESPACE)"
+            - "--cert-dir=/etc/tls"            
 
           volumeMounts:
             - name: tls

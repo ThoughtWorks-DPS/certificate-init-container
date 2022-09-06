@@ -98,26 +98,26 @@ commands:
           name: Get bearer token using username and password
           command: |
             curl -s -H "Content-Type: application/json" \
-                  -X POST -d "{\"username\": \"${<< parameters.registry-login >>}\", \"password\": \"${<< parameters.registry-password >>}\"}" \
+                  -X POST -d "{\"username\": \"${DOCKER_LOGIN}\", \"password\": \"${DOCKER_PASSWORD}\"}" \
                   https://hub.docker.com/v2/users/login/ | jq -r .token > token.jwt
       - run:
           name: GET all repository tags
           command: |
             export TOKEN=$(cat token.jwt)
-            curl "https://hub.docker.com/v2/repositories/<< parameters.image >>/tags/" \
+            curl "https://hub.docker.com/v2/repositories/twdps/certificate-init-container/tags/" \
                   -X GET \
                   -H "Authorization: JWT ${TOKEN}" \
                   > all_images.json
       - run:
           name: find development tagged images
           command: |
-            cat all_images.json | jq -r '.results | .[] | select(.name | contains ("<< parameters.dev-tag >>")) | .name' > dev_tags
+            cat all_images.json | jq -r '.results | .[] | select(.name | contains ("dev")) | .name' > dev_tags
       - run:
           name: delete dev tagged images
           command: |
             export TOKEN=$(cat token.jwt)
             while read TAG; do
-                curl "https://hub.docker.com/v2/repositories/<< parameters.image >>/tags/${TAG}/" \
+                curl "https://hub.docker.com/v2/repositories/twdps/certificate-init-container/tags/${TAG}/" \
                       -X DELETE \
                       -H "Authorization: JWT ${TOKEN}"
             done < dev_tags

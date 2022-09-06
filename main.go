@@ -47,7 +47,7 @@ func main() {
 	flag.StringVar(&locality, "locality", "", "Locality for the certificate")
 	flag.StringVar(&streetAddress, "street-address", "", "Street Address for the certificate")
 	flag.StringVar(&postalCode, "postal-code", "", "Postal Code for the certificate")
-	flag.IntVar(&caDuration, "ca-duration", 10, "number of years duration of the self-signed CA certificate, default 10")
+	flag.IntVar(&caDuration, "ca-duration", 3, "number of years duration of the self-signed CA certificate, default 10")
 	flag.StringVar(&additionalDNSNames, "additional-dnsnames", "", "additional dns names; comma separated")
 	flag.StringVar(&serviceNames, "service-names", "", "service names that resolve to this Pod; comma separated")
 	flag.StringVar(&hostname, "hostname", "", "hostname as defined by pod.spec.hostname")

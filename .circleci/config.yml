@@ -201,7 +201,7 @@ workflows:
       - continuous-integration:
           name: run static code analysis
           context: << pipeline.parameters.context >>
-          filter: *on-push-main
+          filters: *on-push-main
 
   release:
     jobs:

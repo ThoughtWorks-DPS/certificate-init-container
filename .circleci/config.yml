@@ -130,38 +130,34 @@ jobs:
           command: make build
       - integration-tests
 
-  # release:
-  #   executor: go-builder
-  #   steps:
-  #     - checkout
-  #     - setup_remote_docker
-  #     - op/install-op:
-  #         os: Ubuntu
-  #     - op/env
-  #     - cosign/install
-  #     - run:
-  #         name: fetch keys for signing
-  #         command: |
-  #           echo "op://empc-lab/svc-cosign-private-key/notesPlain" > cosign.key.env
-  #           echo "op://empc-lab/svc-cosign-public-key/notesPlain" > cosign.pub.env
-  #           op inject -i cosign.key.env -o cosign.key
-  #           op inject -i cosign.pub.env -o cosign.pub
-  #     - run:
-  #         name: interpolate config.go.tpl
-  #         command: |
-  #           op inject -i tpl/config.go.tpl -o cmd/config.go
-  #     - run:
-  #         name: Use goreleaser to build and publish executables to github packages
-  #         command: |
-  #           curl -sL https://git.io/goreleaser | bash
-  #           mkdir release-assets && cp dist/*.tar.* release-assets && cp dist/*.zip release-assets
-  #     - run:
-  #         name: validate signature
-  #         command: cosign verify-blob -key cosign.pub -signature release-assets/dpsctl_Linux_i386.tar.gz.sig release-assets/dpsctl_Linux_i386.tar.gz
-  #     - persist_to_workspace:
-  #         root: ~/
-  #         paths:
-  #           - project/release-assets
+  release:
+    machine:
+      image: << pipeline.parameters.machine-image >>
+    shell: /bin/bash -eo pipefail
+    steps:
+      - checkout
+      - op/install-op:
+          os: Ubuntu
+      - op/env
+      # - cosign/install
+      # - run:
+      #     name: fetch keys for signing
+      #     command: |
+      #       echo "op://empc-lab/svc-cosign-private-key/notesPlain" > cosign.key.env
+      #       echo "op://empc-lab/svc-cosign-public-key/notesPlain" > cosign.pub.env
+      #       op inject -i cosign.key.env -o cosign.key
+      #       op inject -i cosign.pub.env -o cosign.pub
+      - run:
+          name: Use goreleaser to build and publish executables
+          command: |
+            curl -sL https://git.io/goreleaser | bash
+      # - run:
+      #     name: validate signature
+      #     command: cosign verify-blob -key cosign.pub -signature release-assets/dpsctl_Linux_i386.tar.gz.sig release-assets/dpsctl_Linux_i386.tar.gz
+      # - persist_to_workspace:
+      #     root: ~/
+      #     paths:
+      #       - project/release-assets
 
   # smoke-test-linux:
   #   executor: linux-i386-agent
@@ -208,12 +204,12 @@ workflows:
           name: run static code analysis
           context: << pipeline.parameters.context >>
 
-  # release:
-  #   jobs:
-  #     - release:
-  #         context: << pipeline.parameters.context >>
-  #         name: publish (pre)release
-  #         filters: *on-tag-release
+  release:
+    jobs:
+      - release:
+          context: << pipeline.parameters.context >>
+          name: publish (pre)release
+          filters: *on-tag-release
 
   #     - smoke-test-linux:
   #         requires:

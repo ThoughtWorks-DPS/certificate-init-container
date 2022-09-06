@@ -61,13 +61,6 @@ commands:
           os: Ubuntu
       - op/env:
           env-file: op.env
-      - kube/packages:
-          use-sudo: true
-          kubectl-version: 1.24.4
-          kind-version: 0.14.0
-      - kube/packages:
-          use-sudo: false
-          bats-version: 1.7.0
       - run:
           name: install go static analysis tools
           command: |
@@ -105,13 +98,20 @@ commands:
 
 jobs:
 
-  static-analysis:
+  continuous-integration:
     machine:
       image: << pipeline.parameters.machine-image >>
     shell: /bin/bash -eo pipefail
     steps:
       - checkout
       - set-environment
+      - kube/packages:
+          use-sudo: true
+          kubectl-version: 1.24.4
+          kind-version: 0.14.0
+      - kube/packages:
+          use-sudo: false
+          bats-version: 1.7.0
       - run:
           name: static code analysis
           command: |
@@ -136,9 +136,7 @@ jobs:
     shell: /bin/bash -eo pipefail
     steps:
       - checkout
-      - op/install-op:
-          os: Ubuntu
-      - op/env
+      - set-environment
       # - cosign/install
       # - run:
       #     name: fetch keys for signing
@@ -198,11 +196,12 @@ jobs:
 workflows:
   version: 2
 
-  push-commits:
+  dev-build:
     jobs:
-      - static-analysis:
+      - continuous-integration:
           name: run static code analysis
           context: << pipeline.parameters.context >>
+          filter: *on-push-main
 
   release:
     jobs:

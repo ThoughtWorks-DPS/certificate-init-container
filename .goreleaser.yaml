@@ -4,7 +4,6 @@ builds:
   - env: [CGO_ENABLED=0]
     goos:
       - linux
-      - windows
       - darwin
     goarch:
       - amd64
@@ -29,7 +28,7 @@ dockers:
     - --label=org.opencontainers.image.licenses=MIT
 
 - goos: linux
-  goarch: ard64
+  goarch: arm64
   use: buildx
   dockerfile: Dockerfile
   image_templates:
@@ -46,14 +45,14 @@ dockers:
     - --label=org.opencontainers.image.licenses=MIT
 
 docker_manifests:
-- name_template: docker.io/twdps/{{ .ProjectName }}:{{ .Version }}
-  image_templates:
-  - docker.io/twdps/{{ .ProjectName }}:{{ .Version }}-amd64
-  - docker.io/twdps/{{ .ProjectName }}:{{ .Version }}-arm64
-- name_template: docker.io/twdps/{{ .ProjectName }}:latest
-  image_templates:
-  - docker.io/twdps/{{ .ProjectName }}:latest-amd64
-  - docker.io/twdps/{{ .ProjectName }}:latest-arm64
+  - name_template: docker.io/twdps/{{ .ProjectName }}:{{ .Version }}
+    image_templates:
+    - docker.io/twdps/{{ .ProjectName }}:{{ .Version }}-amd64
+    - docker.io/twdps/{{ .ProjectName }}:{{ .Version }}-arm64
+  - name_template: docker.io/twdps/{{ .ProjectName }}:latest
+    image_templates:
+    - docker.io/twdps/{{ .ProjectName }}:latest-amd64
+    - docker.io/twdps/{{ .ProjectName }}:latest-arm64
 
 # signs:
 #   - cmd: cosign

@@ -84,14 +84,13 @@ commands:
             echo ${<< parameters.registry-password >>} | docker login -u ${<< parameters.registry-login >>} --password-stdin << parameters.registry >>
 
   integration-tests:
-    steps:
+    steps: 
       - run:
           name: launch ci local cluster
-          command: kind create cluster --name test && sleep 10
+          command: kind create cluster --name test && sleep 10 # kind needs a bit of time to get a node available
       - run:
           name: deploy tls test app
-          command: |
-            bash scripts/deploy_test_app.sh && sleep 25
+          command: bash test/deploy_test_app.sh && sleep 25 # app needs a bit of time to let the init container run and then startup the test app
       - run:
           name: test for successful certificate creation
           command: bats test/certificate-init-container.bats
@@ -137,14 +136,14 @@ jobs:
     steps:
       - checkout
       - set-environment
-      # - cosign/install
-      # - run:
-      #     name: fetch keys for signing
-      #     command: |
-      #       echo "op://empc-lab/svc-cosign-private-key/notesPlain" > cosign.key.env
-      #       echo "op://empc-lab/svc-cosign-public-key/notesPlain" > cosign.pub.env
-      #       op inject -i cosign.key.env -o cosign.key
-      #       op inject -i cosign.pub.env -o cosign.pub
+      - cosign/install
+      - run:
+          name: fetch keys for signing
+          command: |
+            echo "op://empc-lab/svc-cosign-private-key/notesPlain" > cosign.key.env
+            echo "op://empc-lab/svc-cosign-public-key/notesPlain" > cosign.pub.env
+            op inject -i cosign.key.env -o cosign.key
+            op inject -i cosign.pub.env -o cosign.pub
       - run:
           name: Use goreleaser to build and publish executables
           command: |

@@ -68,23 +68,7 @@ commands:
             go install honnef.co/go/tools/cmd/staticcheck@latest
             curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $HOME/.go_workspace/bin v1.49.0
       - do/validate-docker-credentials
-      # - run:
-      #     name: Confirm Docker registry environment variables are configured and correct
-      #     command: |
-      #       if [ ! ${<< parameters.registry-login >>-} ]; then
-      #         echo "registry access username is not set, will not be able to push image."
-      #         exit 1
-      #       fi
-      #       if [ ! ${<< parameters.registry-password >>-} ]; then
-      #         echo "registry access password is not set, will not be able to push image."
-      #         exit 1
-      #       fi
-      # - run:
-      #     name: Confirm Docker registry login
-      #     command: |
-      #       echo 'write to .docker/config.json is secure in ephemeral runtime environment'
-      #       echo ${<< parameters.registry-password >>} | docker login -u ${<< parameters.registry-login >>} --password-stdin << parameters.registry >>
-
+        
   integration-tests:
     steps: 
       - run:
@@ -96,6 +80,47 @@ commands:
       - run:
           name: test for successful certificate creation
           command: bats test/certificate-init-container.bats
+
+  prune-registry:
+    parameters:
+      registry: 
+        description: dtr compatible registry
+        type: string
+        default: docker.io
+      registry-login:
+        type: string
+        default: DOCKER_LOGIN
+      registry-password:
+        type: string
+        default: DOCKER_PASSWORD
+    steps:
+      - run:
+          name: Get bearer token using username and password
+          command: |
+            curl -s -H "Content-Type: application/json" \
+                  -X POST -d "{\"username\": \"${<< parameters.registry-login >>}\", \"password\": \"${<< parameters.registry-password >>}\"}" \
+                  https://hub.docker.com/v2/users/login/ | jq -r .token > token.jwt
+      - run:
+          name: GET all repository tags
+          command: |
+            export TOKEN=$(cat token.jwt)
+            curl "https://hub.docker.com/v2/repositories/<< parameters.image >>/tags/" \
+                  -X GET \
+                  -H "Authorization: JWT ${TOKEN}" \
+                  > all_images.json
+      - run:
+          name: find development tagged images
+          command: |
+            cat all_images.json | jq -r '.results | .[] | select(.name | contains ("<< parameters.dev-tag >>")) | .name' > dev_tags
+      - run:
+          name: delete dev tagged images
+          command: |
+            export TOKEN=$(cat token.jwt)
+            while read TAG; do
+                curl "https://hub.docker.com/v2/repositories/<< parameters.image >>/tags/${TAG}/" \
+                      -X DELETE \
+                      -H "Authorization: JWT ${TOKEN}"
+            done < dev_tags
 
 jobs:
 
@@ -157,6 +182,7 @@ jobs:
       #     root: ~/
       #     paths:
       #       - project/release-assets
+      - prune-registry
 
   # smoke-test-linux:
   #   executor: linux-i386-agent

@@ -1,2 +1,5 @@
 *.crt
 *.key
+
+cosign.*
+kubeconfig*

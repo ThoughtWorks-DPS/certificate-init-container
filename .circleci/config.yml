@@ -76,51 +76,10 @@ commands:
           command: kind create cluster --name test && sleep 10 # kind needs a bit of time to get a node available
       - run:
           name: deploy tls test app
-          command: bash test/deploy_test_app.sh && sleep 25 # app needs a bit of time to let the init container run and then startup the test app
+          command: bash scripts/deploy_test_app.sh && sleep 25 # app needs a bit of time to let the init container run and then startup the test app
       - run:
           name: test for successful certificate creation
           command: bats test/certificate-init-container.bats
-
-  prune-registry:
-    parameters:
-      registry: 
-        description: dtr compatible registry
-        type: string
-        default: docker.io
-      registry-login:
-        type: string
-        default: DOCKER_LOGIN
-      registry-password:
-        type: string
-        default: DOCKER_PASSWORD
-    steps:
-      - run:
-          name: Get bearer token using username and password
-          command: |
-            curl -s -H "Content-Type: application/json" \
-                  -X POST -d "{\"username\": \"${DOCKER_LOGIN}\", \"password\": \"${DOCKER_PASSWORD}\"}" \
-                  https://hub.docker.com/v2/users/login/ | jq -r .token > token.jwt
-      - run:
-          name: GET all repository tags
-          command: |
-            export TOKEN=$(cat token.jwt)
-            curl "https://hub.docker.com/v2/repositories/twdps/certificate-init-container/tags/" \
-                  -X GET \
-                  -H "Authorization: JWT ${TOKEN}" \
-                  > all_images.json
-      - run:
-          name: find development tagged images
-          command: |
-            cat all_images.json | jq -r '.results | .[] | select(.name | contains ("dev")) | .name' > dev_tags
-      - run:
-          name: delete dev tagged images
-          command: |
-            export TOKEN=$(cat token.jwt)
-            while read TAG; do
-                curl "https://hub.docker.com/v2/repositories/twdps/certificate-init-container/tags/${TAG}/" \
-                      -X DELETE \
-                      -H "Authorization: JWT ${TOKEN}"
-            done < dev_tags
 
 jobs:
 
@@ -182,7 +141,9 @@ jobs:
       #     root: ~/
       #     paths:
       #       - project/release-assets
-      - prune-registry
+      - run:
+          name: prune image registry of dev tags
+          command: bash scripts/prune_registry.sh
 
   # smoke-test-linux:
   #   executor: linux-i386-agent

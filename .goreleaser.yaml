@@ -60,12 +60,8 @@ signs:
     stdin: '{{ .Env.COSIGN_PWD }}'
     args: ["sign-blob", "--key=cosign.key", "--output=${signature}", "${artifact}"]
     artifacts: all
-# checksum:
-#   # https://goreleaser.com/customization/checksum/
-#   name_template: 'checksums.txt'
-# snapshot:
-#   # https://goreleaser.com/customization/snapshots/
-#   name_template: "{{ incpatch .Version }}-SNAPSHOT"
-# source:
-#   # https://goreleaser.com/customization/source/
-#   enabled: true
+checksum:
+  name_template: 'checksums.txt'
+source:
+  # https://goreleaser.com/customization/source/
+  enabled: true

@@ -5,7 +5,8 @@ orbs:
   op: twdps/onepassword@1.0.0
   cosign: twdps/cosign@0.1.0
   win: circleci/windows@4.1.1
-  kube: twdps/kube-ops@dev:latest
+  kube: twdps/kube-ops@0.3.0
+  do: twdps/pipeline-events@dev:latest
 
 # =================================== global pipeline parameters
 
@@ -57,6 +58,7 @@ commands:
         type: string
         default: DOCKER_PASSWORD
     steps:
+      - do/validate-docker-credentials
       - op/install-op:
           os: Ubuntu
       - op/env:
@@ -66,22 +68,22 @@ commands:
           command: |
             go install honnef.co/go/tools/cmd/staticcheck@latest
             curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $HOME/.go_workspace/bin v1.49.0
-      - run:
-          name: Confirm Docker registry environment variables are configured and correct
-          command: |
-            if [ ! ${<< parameters.registry-login >>-} ]; then
-              echo "registry access username is not set, will not be able to push image."
-              exit 1
-            fi
-            if [ ! ${<< parameters.registry-password >>-} ]; then
-              echo "registry access password is not set, will not be able to push image."
-              exit 1
-            fi
-      - run:
-          name: Confirm Docker registry login
-          command: |
-            echo 'write to .docker/config.json is secure in ephemeral runtime environment'
-            echo ${<< parameters.registry-password >>} | docker login -u ${<< parameters.registry-login >>} --password-stdin << parameters.registry >>
+      # - run:
+      #     name: Confirm Docker registry environment variables are configured and correct
+      #     command: |
+      #       if [ ! ${<< parameters.registry-login >>-} ]; then
+      #         echo "registry access username is not set, will not be able to push image."
+      #         exit 1
+      #       fi
+      #       if [ ! ${<< parameters.registry-password >>-} ]; then
+      #         echo "registry access password is not set, will not be able to push image."
+      #         exit 1
+      #       fi
+      # - run:
+      #     name: Confirm Docker registry login
+      #     command: |
+      #       echo 'write to .docker/config.json is secure in ephemeral runtime environment'
+      #       echo ${<< parameters.registry-password >>} | docker login -u ${<< parameters.registry-login >>} --password-stdin << parameters.registry >>
 
   integration-tests:
     steps: 
@@ -198,15 +200,15 @@ workflows:
   dev-build:
     jobs:
       - continuous-integration:
-          name: run static code analysis
+          name: run static code analysis and integration tests
           context: << pipeline.parameters.context >>
           filters: *on-push-main
 
   release:
     jobs:
       - release:
+          name: publish release version
           context: << pipeline.parameters.context >>
-          name: publish (pre)release
           filters: *on-tag-release
 
   #     - smoke-test-linux:

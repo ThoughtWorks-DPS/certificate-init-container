@@ -65,9 +65,9 @@ commands:
           use-sudo: true
           kubectl-version: 1.24.4
           kind-version: 0.14.0
-      # - kube/packages:
-      #     use-sudo: false
-      #     bats-version: 1.7.0
+      - kube/packages:
+          use-sudo: false
+          bats-version: 1.7.0
       - run:
           name: install go static analysis tools
           command: |
@@ -99,10 +99,9 @@ commands:
           name: deploy tls test app
           command: |
             bash scripts/deploy_test_app.sh && sleep 5
-            kubectl get all -n ci-dev && sleep 5
-            kubectl get all -n ci-dev && sleep 5
-            kubectl get all -n ci-dev && sleep 5
-            kubectl get all -n ci-dev && sleep 5
+      - run:
+          name: test for successful certificate creation
+          command: bats test/certificate-init-container.bats
 
 jobs:
 

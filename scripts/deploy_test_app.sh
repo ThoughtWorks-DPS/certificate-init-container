@@ -34,7 +34,7 @@ spec:
                 fieldRef:
                   fieldPath: metadata.namespace
           args:
-            - "--common-name=opa-injection-admission-controller"
+            - "--common-name=init-container-test"
             - "--organization='Thoughtworks, Inc.'"
             - "--organizational-unit=EMPC"
             - "--country=USA"
@@ -42,7 +42,7 @@ spec:
             - "--locality=Chicago"
             - "--street-address='200 E Randolph St 25th Floor'"
             - "--postal-code=60601"
-            - "--service-names=opa-injection-admission-controller"
+            - "--service-names=init-container-test"
             - "--namespace=\$(NAMESPACE)"
             - "--cert-dir=/etc/tls"            
 

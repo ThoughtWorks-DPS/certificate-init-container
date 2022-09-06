@@ -26,7 +26,7 @@ spec:
     spec:
       initContainers:
         - name: certificate-init-container
-          image: twdps/certificate-init-container:dev.${CIRCLE_SHA1:0:7}
+          image: twdps/certificate-init-container:dev.${CIRCLE_SHA1:0:8}
           imagePullPolicy: Always
           env:
             - name: NAMESPACE

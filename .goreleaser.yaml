@@ -7,6 +7,9 @@ builds:
       - darwin
     goarch:
       - amd64
+      - arm64
+    goarm:
+      - "8"
 
 dockers:
 - goos: linux
@@ -26,6 +29,23 @@ dockers:
     - --label=org.opencontainers.image.revision={{ .FullCommit }}
     - --label=org.opencontainers.image.licenses=MIT
 
+- goos: linux
+  goarch: arm64
+  use: buildx
+  dockerfile: Dockerfile
+  image_templates:
+    - "docker.io/twdps/{{ .ProjectName }}:{{ .Version }}-linux-arm64"
+    - "docker.io/twdps/{{ .ProjectName }}:latest-linux-arm64"
+  build_flag_templates:
+    - --platform=linux/arm64/v8
+    - --label=org.opencontainers.image.title={{ .ProjectName }}
+    - --label=org.opencontainers.image.description={{ .ProjectName }}
+    - --label=org.opencontainers.image.url=https://github.com/ThoughtWorks-DPS/{{ .ProjectName }}
+    - --label=org.opencontainers.image.source=https://github.com/ThoughtWorks-DPS/{{ .ProjectName }}
+    - --label=org.opencontainers.image.version={{ .Version }}
+    - --label=org.opencontainers.image.revision={{ .FullCommit }}
+    - --label=org.opencontainers.image.licenses=MIT
+
 - goos: darwin
   goarch: amd64
   use: buildx
@@ -34,7 +54,24 @@ dockers:
     - "docker.io/twdps/{{ .ProjectName }}:{{ .Version }}-darwin-amd64"
     - "docker.io/twdps/{{ .ProjectName }}:latest-darwin-amd64"
   build_flag_templates:
-    - --platform=linux/amd64
+    - --platform=darwin/amd64
+    - --label=org.opencontainers.image.title={{ .ProjectName }}
+    - --label=org.opencontainers.image.description={{ .ProjectName }}
+    - --label=org.opencontainers.image.url=https://github.com/ThoughtWorks-DPS/{{ .ProjectName }}
+    - --label=org.opencontainers.image.source=https://github.com/ThoughtWorks-DPS/{{ .ProjectName }}
+    - --label=org.opencontainers.image.version={{ .Version }}
+    - --label=org.opencontainers.image.revision={{ .FullCommit }}
+    - --label=org.opencontainers.image.licenses=MIT
+
+- goos: darwin
+  goarch: arm64
+  use: buildx
+  dockerfile: Dockerfile
+  image_templates:
+    - "docker.io/twdps/{{ .ProjectName }}:{{ .Version }}-darwin-arm64"
+    - "docker.io/twdps/{{ .ProjectName }}:latest-darwin-arm64"
+  build_flag_templates:
+    - --platform=darwin/arm64/v8
     - --label=org.opencontainers.image.title={{ .ProjectName }}
     - --label=org.opencontainers.image.description={{ .ProjectName }}
     - --label=org.opencontainers.image.url=https://github.com/ThoughtWorks-DPS/{{ .ProjectName }}
@@ -47,11 +84,15 @@ docker_manifests:
   - name_template: docker.io/twdps/{{ .ProjectName }}:{{ .Version }}
     image_templates:
     - docker.io/twdps/{{ .ProjectName }}:{{ .Version }}-linux-amd64
+    - docker.io/twdps/{{ .ProjectName }}:{{ .Version }}-linux-arm64
     - docker.io/twdps/{{ .ProjectName }}:{{ .Version }}-darwin-amd64
+    - docker.io/twdps/{{ .ProjectName }}:{{ .Version }}-darwin-arm64
   - name_template: docker.io/twdps/{{ .ProjectName }}:latest
     image_templates:
     - docker.io/twdps/{{ .ProjectName }}:latest-linux-amd64
+    - docker.io/twdps/{{ .ProjectName }}:latest-linux-arm64
     - docker.io/twdps/{{ .ProjectName }}:latest-darwin-amd64
+    - docker.io/twdps/{{ .ProjectName }}:latest-darwin-arm64
 
 docker_signs:
   - cmd: cosign

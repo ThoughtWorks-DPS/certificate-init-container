@@ -73,7 +73,7 @@ Use only the parameters necessary to create the desired dns name identifiers.
 
 At deployment, the certificate-init-container will run first.  
 
-It will generate a new certificate and private key based on the parameters provided:
+It will generate a new CA certificate and private key based on the parameters provided:
 ```go
 ca := &x509.Certificate{
     SerialNumber: big.NewInt(1000),
@@ -106,4 +106,4 @@ To test certificate generation provide a cert directory override to have the fil
 go run main.go -cert-dir=./
 ```
 
-This is an adaptation of Kelsey Hightower's [certificate-init-container](https://github.com/kelseyhightower/certificate-init-container). _Note: While both amd64 and arm64 versions of the image are published, the tls-app used in the build pipeline for testing purposes does not run on M1 macs._   
+This is an adaptation of Kelsey Hightower's [certificate-init-container](https://github.com/kelseyhightower/certificate-init-container). _Note: The darwin build is a universal binary for Apple Silicon support._   

@@ -60,9 +60,3 @@ docker_signs:
     stdin: '{{ .Env.COSIGN_PWD }}'
     args: ["sign", "--key=cosign.key", "${artifact}"]
     artifacts: all
-# checksum:
-#   name_template: 'checksums.txt'
-# source:
-#   # https://goreleaser.com/customization/source/
-#   enabled: true
-#cosign sign --key cosign.key dlorenc/demo

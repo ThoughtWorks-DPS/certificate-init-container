@@ -34,14 +34,14 @@ on-tag-release: &on-tag-release
       - /^([0-9]+(\.[0-9]+)+)-rc.[0-9]+$/
       - /^((([0-9]+)\.([0-9]+)\.([0-9]+))?)$/
 
-# executors:
+executors:
 #   go-builder:
 #     docker:
 #       - image: cimg/go:<< pipeline.parameters.go-version >>
 
-#   linux-i386-agent:
-#     docker:
-#       - image: i386/buildpack-deps
+  linux-i386-agent:
+    docker:
+      - image: i386/buildpack-deps
 
 commands:
 
@@ -150,25 +150,19 @@ jobs:
       - run: 
           name: validate signature
           command: cosign verify -key cosign.pub twdps/certificate-init-container
-      # - persist_to_workspace:
-      #     root: ~/
-      #     paths:
-      #       - project/release-assets
       - run:
           name: prune image registry of dev tags
           command: bash scripts/prune_registry.sh
 
-  # smoke-test-linux:
-  #   executor: linux-i386-agent
-  #   steps:
-  #     - checkout
-  #     - attach_workspace:
-  #         at: ~/
-  #     - run:
-  #         name: smoketest i386 linux version
-  #         command: |
-  #           tar -xvzf release-assets/dpsctl_Linux_i386.tar.gz
-  #           ./dpsctl version | grep ${CIRCLE_TAG}
+  smoke-test-linux:
+    executor: linux-i386-agent
+    steps:
+      - checkout
+      - run:
+          name: smoketest i386 linux version
+          command: |
+            docker pull twdps/certificate-init-container
+            docker run -it twdps/certificate-init-container:latest | grep "self-signed certificate requested with the following information"
   # smoke-test-macos:
   #   macos:
   #     xcode: 14.0.0
@@ -194,6 +188,7 @@ jobs:
   #         command: |
   #           unzip -u release-assets/dpsctl_Windows_x86_64.zip
   #           ./dpsctl version | grep ${CIRCLE_TAG}
+
 workflows:
   version: 2
 
@@ -211,10 +206,10 @@ workflows:
           context: << pipeline.parameters.context >>
           filters: *on-tag-release
 
-  #     - smoke-test-linux:
-  #         requires:
-  #           - publish (pre)release
-  #         filters: *on-tag-release
+      - smoke-test-linux:
+          requires:
+            - publish (pre)release
+          filters: *on-tag-release
   #     - smoke-test-macos:
   #         requires:
   #           - publish (pre)release

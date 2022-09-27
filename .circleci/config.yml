@@ -110,13 +110,14 @@ jobs:
           name: golang specific vulnerability assessment
           command: govulncheck ./...
       - run:
-          name: build and push ci image
-          command: |
-            make build
-            make push
-      - run:
-          name: test ci image
+          name: build dev image
           command: make build
+      - run:
+          name: push dev build to registry
+          command: make push
+      # - run:
+      #     name: test ci image
+      #     command: make build
       - integration-tests
 
   release:

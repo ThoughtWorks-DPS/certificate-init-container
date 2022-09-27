@@ -119,7 +119,6 @@ jobs:
   release:
     machine:
       image: << pipeline.parameters.machine-image >>
-    shell: /bin/bash -eo pipefail
     steps:
       - checkout
       - cosign/install

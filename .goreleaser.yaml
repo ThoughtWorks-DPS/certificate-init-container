@@ -82,7 +82,7 @@ dockers:
 - goos: windows
   goarch: amd64
   use: buildx
-  dockerfile: Dockerfile
+  dockerfile: Dockerfile.windows
   image_templates:
     - "docker.io/twdps/{{ .ProjectName }}:{{ .Version }}-windows-amd64"
     - "docker.io/twdps/{{ .ProjectName }}:latest-windows-amd64"

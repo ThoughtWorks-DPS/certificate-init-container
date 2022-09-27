@@ -1,0 +1,4 @@
+FROM winamd64/golang:1.18
+WORKDIR /
+COPY ./certificate-init-container ./certificate-init-container
+ENTRYPOINT ["./certificate-init-container"]

@@ -155,7 +155,7 @@ jobs:
           command: |
             docker pull twdps/certificate-init-container
             docker run -it twdps/certificate-init-container:latest | grep "self-signed certificate requested with the following information"
-  smoke-test-macos:
+  smoke-test-intel-macos:
     macos:
       xcode: 14.0.0
     steps:

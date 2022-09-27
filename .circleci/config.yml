@@ -34,11 +34,6 @@ on-tag-release: &on-tag-release
       - /^([0-9]+(\.[0-9]+)+)-rc.[0-9]+$/
       - /^((([0-9]+)\.([0-9]+)\.([0-9]+))?)$/
 
-executors:
-  linux-i386-agent:
-    docker:
-      - image: i386/buildpack-deps
-
 commands:
 
   set-environment:
@@ -119,9 +114,6 @@ jobs:
       - run:
           name: push dev build to registry
           command: make push
-      # - run:
-      #     name: test ci image
-      #     command: make build
       - integration-tests
 
   release:
@@ -146,12 +138,16 @@ jobs:
       - run: 
           name: validate signature
           command: cosign verify -key cosign.pub twdps/certificate-init-container
-      - run:
-          name: prune image registry of dev tags
-          command: bash scripts/prune_registry.sh
+      - do/prune-dockerhub:
+          repository: twdps/certificate-init-container
+          tag-filter: dev
+      # - run:
+      #     name: prune image registry of dev tags
+      #     command: bash scripts/prune_registry.sh
 
   smoke-test-linux:
-    executor: linux-i386-agent
+    machine:
+      image: << pipeline.parameters.machine-image >>
     steps:
       - checkout
       - run:
@@ -159,18 +155,18 @@ jobs:
           command: |
             docker pull twdps/certificate-init-container
             docker run -it twdps/certificate-init-container:latest | grep "self-signed certificate requested with the following information"
-  # smoke-test-macos:
-  #   macos:
-  #     xcode: 14.0.0
-  #   steps:
-  #     - checkout
-  #     - attach_workspace:
-  #         at: ~/
-  #     - run:
-  #         name: smoketest MacOS linux version
-  #         command: |
-  #           tar -xvzf release-assets/dpsctl_macOS_x86_64.tar.gz
-  #           ./dpsctl version | grep ${CIRCLE_TAG}
+  smoke-test-macos:
+    macos:
+      xcode: 14.0.0
+    steps:
+      - checkout
+      - attach_workspace:
+          at: ~/
+      - run:
+          name: smoketest MacOS linux version
+          command: |
+            tar -xvzf release-assets/dpsctl_macOS_x86_64.tar.gz
+            ./dpsctl version | grep ${CIRCLE_TAG}
 
 workflows:
   version: 2
@@ -193,11 +189,8 @@ workflows:
           requires:
             - publish release version
           filters: *on-tag-release
-  #     - smoke-test-intel-macos:
-  #         requires:
-  #           - publish (pre)release
-  #         filters: *on-tag-release
-  #     - smoke-test-win:
-  #         requires:
-  #           - publish (pre)release
-  #         filters: *on-tag-release
+      - smoke-test-intel-macos:
+          requires:
+            - publish release version
+          filters: *on-tag-release
+  

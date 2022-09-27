@@ -7,7 +7,6 @@ builds:
       - darwin
     goarch:
       - amd64
-      # - arm64
 
 dockers:
 - goos: linux
@@ -27,23 +26,6 @@ dockers:
     - --label=org.opencontainers.image.revision={{ .FullCommit }}
     - --label=org.opencontainers.image.licenses=MIT
 
-# - goos: linux
-#   goarch: arm64
-#   use: buildx
-#   dockerfile: Dockerfile
-#   image_templates:
-#     - "docker.io/twdps/{{ .ProjectName }}:{{ .Version }}-linux-arm64"
-#     - "docker.io/twdps/{{ .ProjectName }}:latest-linux-arm64"
-#   build_flag_templates:
-#     - --platform=linux/arm64/v8
-#     - --label=org.opencontainers.image.title={{ .ProjectName }}
-#     - --label=org.opencontainers.image.description={{ .ProjectName }}
-#     - --label=org.opencontainers.image.url=https://github.com/ThoughtWorks-DPS/{{ .ProjectName }}
-#     - --label=org.opencontainers.image.source=https://github.com/ThoughtWorks-DPS/{{ .ProjectName }}
-#     - --label=org.opencontainers.image.version={{ .Version }}
-#     - --label=org.opencontainers.image.revision={{ .FullCommit }}
-#     - --label=org.opencontainers.image.licenses=MIT
-
 - goos: darwin
   goarch: amd64
   use: buildx
@@ -60,23 +42,6 @@ dockers:
     - --label=org.opencontainers.image.version={{ .Version }}
     - --label=org.opencontainers.image.revision={{ .FullCommit }}
     - --label=org.opencontainers.image.licenses=MIT
-
-# - goos: darwin
-#   goarch: arm64
-#   use: buildx
-#   dockerfile: Dockerfile
-#   image_templates:
-#     - "docker.io/twdps/{{ .ProjectName }}:{{ .Version }}-darwin-arm64"
-#     - "docker.io/twdps/{{ .ProjectName }}:latest-lidarwinnux-arm64"
-#   build_flag_templates:
-#     - --platform=linux/arm64/v8
-#     - --label=org.opencontainers.image.title={{ .ProjectName }}
-#     - --label=org.opencontainers.image.description={{ .ProjectName }}
-#     - --label=org.opencontainers.image.url=https://github.com/ThoughtWorks-DPS/{{ .ProjectName }}
-#     - --label=org.opencontainers.image.source=https://github.com/ThoughtWorks-DPS/{{ .ProjectName }}
-#     - --label=org.opencontainers.image.version={{ .Version }}
-#     - --label=org.opencontainers.image.revision={{ .FullCommit }}
-#     - --label=org.opencontainers.image.licenses=MIT
 
 docker_manifests:
   - name_template: docker.io/twdps/{{ .ProjectName }}:{{ .Version }}

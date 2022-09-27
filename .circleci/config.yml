@@ -67,6 +67,13 @@ commands:
           name: test for successful certificate creation
           command: bats test/certificate-init-container.bats
 
+  docker-run-test:
+    steps:
+      - run:
+          name: smoketest image build
+          command: |
+            docker pull twdps/certificate-init-container
+            docker run -it twdps/certificate-init-container:latest | grep "self-signed certificate requested with the following information"
 jobs:
 
   continuous-integration:
@@ -140,32 +147,20 @@ jobs:
       - do/prune-dockerhub:
           repository: twdps/certificate-init-container
           tag-filter: dev
-      # - run:
-      #     name: prune image registry of dev tags
-      #     command: bash scripts/prune_registry.sh
 
   smoke-test-linux:
     machine:
       image: << pipeline.parameters.machine-image >>
     steps:
       - checkout
-      - run:
-          name: smoketest i386 linux version
-          command: |
-            docker pull twdps/certificate-init-container
-            docker run -it twdps/certificate-init-container:latest | grep "self-signed certificate requested with the following information"
+      - docker-run-test
+
   smoke-test-intel-macos:
     macos:
       xcode: 14.0.0
     steps:
       - checkout
-      - attach_workspace:
-          at: ~/
-      - run:
-          name: smoketest MacOS linux version
-          command: |
-            tar -xvzf release-assets/dpsctl_macOS_x86_64.tar.gz
-            ./dpsctl version | grep ${CIRCLE_TAG}
+      - docker-run-test
 
 workflows:
   version: 2
@@ -185,10 +180,13 @@ workflows:
           filters: *on-tag-release
 
       - smoke-test-linux:
+          name: smoke test amd64 version
           requires:
             - publish release version
           filters: *on-tag-release
+          
       - smoke-test-intel-macos:
+          name: smoke test arm64 version
           requires:
             - publish release version
           filters: *on-tag-release

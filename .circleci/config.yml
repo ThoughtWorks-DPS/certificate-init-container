@@ -208,7 +208,7 @@ workflows:
 
       - smoke-test-linux:
           requires:
-            - publish (pre)release
+            - publish release version
           filters: *on-tag-release
   #     - smoke-test-macos:
   #         requires:

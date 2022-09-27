@@ -210,7 +210,7 @@ workflows:
           requires:
             - publish release version
           filters: *on-tag-release
-  #     - smoke-test-macos:
+  #     - smoke-test-intel-macos:
   #         requires:
   #           - publish (pre)release
   #         filters: *on-tag-release

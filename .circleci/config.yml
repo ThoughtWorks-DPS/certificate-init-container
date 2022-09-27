@@ -35,10 +35,6 @@ on-tag-release: &on-tag-release
       - /^((([0-9]+)\.([0-9]+)\.([0-9]+))?)$/
 
 executors:
-#   go-builder:
-#     docker:
-#       - image: cimg/go:<< pipeline.parameters.go-version >>
-
   linux-i386-agent:
     docker:
       - image: i386/buildpack-deps
@@ -174,19 +170,6 @@ jobs:
   #         name: smoketest MacOS linux version
   #         command: |
   #           tar -xvzf release-assets/dpsctl_macOS_x86_64.tar.gz
-  #           ./dpsctl version | grep ${CIRCLE_TAG}
-  # smoke-test-win:
-  #   executor:
-  #     name: win/default
-  #     shell: bash.exe
-  #   steps:
-  #     - checkout
-  #     - attach_workspace:
-  #           at: ~/
-  #     - run:
-  #         name: smoke test windows version
-  #         command: |
-  #           unzip -u release-assets/dpsctl_Windows_x86_64.zip
   #           ./dpsctl version | grep ${CIRCLE_TAG}
 
 workflows:

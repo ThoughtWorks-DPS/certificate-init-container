@@ -34,14 +34,14 @@ on-tag-release: &on-tag-release
       - /^([0-9]+(\.[0-9]+)+)-rc.[0-9]+$/
       - /^((([0-9]+)\.([0-9]+)\.([0-9]+))?)$/
 
-executors:
-  go-builder:
-    docker:
-      - image: cimg/go:<< pipeline.parameters.go-version >>
+# executors:
+#   go-builder:
+#     docker:
+#       - image: cimg/go:<< pipeline.parameters.go-version >>
 
-  linux-i386-agent:
-    docker:
-      - image: i386/buildpack-deps
+#   linux-i386-agent:
+#     docker:
+#       - image: i386/buildpack-deps
 
 commands:
 
@@ -65,9 +65,17 @@ commands:
       - run:
           name: install go static analysis tools
           command: |
-            go install honnef.co/go/tools/cmd/staticcheck@latest
+            echo 'install staticcheck'
+            go install honnef.co/go/tools/cmd/staticcheck@2022.1.3
+            staticcheck -version
+
+            echo 'install golangci-lint'
             curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $HOME/.go_workspace/bin v1.49.0
+            golangci-lint --version
+
+            echo 'install govulncheck'
             go install golang.org/x/vuln/cmd/govulncheck@latest
+            govulncheck --help
       - do/validate-docker-credentials
         
   integration-tests:
@@ -126,8 +134,8 @@ jobs:
     shell: /bin/bash -eo pipefail
     steps:
       - checkout
-      - set-environment
       - cosign/install
+      - set-environment
       - run:
           name: fetch keys for signing
           command: |

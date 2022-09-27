@@ -62,7 +62,7 @@ docker_signs:
     artifacts: all
 checksum:
   name_template: 'checksums.txt'
-source:
-  # https://goreleaser.com/customization/source/
-  enabled: true
+# source:
+#   # https://goreleaser.com/customization/source/
+#   enabled: true
 #cosign sign --key cosign.key dlorenc/demo

@@ -6,7 +6,7 @@
 	</p>
   <br />
   <h3>certificate-init-container</h3>
-    <a href="https://app.circleci.com/pipelines/github/ThoughtWorks-DPS/certificate-init-container"><img src="https://circleci.com/gh/ThoughtWorks-DPS/certificate-init-container.svg?style=shield"></a> <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
+    <a href="https://app.circleci.com/pipelines/github/ThoughtWorks-DPS/certificate-init-container"><img src="https://circleci.com/gh/ThoughtWorks-DPS/certificate-init-container.svg?style=shield"></a> <a href="https://hub.docker.com/repository/docker/twdps/certificate-init-container/general"><img src="https://img.shields.io/docker/v/twdps/certificate-init-container?color=dark-green"></a> <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
 </div>
 <br />
 
@@ -19,7 +19,7 @@ Add the init container to an existing deployment.
 ```yaml
 initContainers:
     - name: certificate-init-container
-        image: twdps/certificate-init-container:0.1.0
+        image: twdps/certificate-init-container:0.2.0
         imagePullPolicy: Always
         env:
         - name: NAMESPACE                                      # example of how the namespace can be accessed from the environment

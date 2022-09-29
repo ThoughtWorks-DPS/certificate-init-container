@@ -12,10 +12,10 @@ orbs:
 
 executors:
 
-  linux-amd64:
+  amd64:
     machine:
       image: ubuntu-2204:2022.07.1
-  linux-arm64:
+  arm64:
     machine:
       image: ubuntu-2004:2022.04.1
     resource_class: arm.medium
@@ -107,8 +107,7 @@ commands:
 jobs:
 
   continuous-integration:
-    machine:
-      image: << pipeline.parameters.linux-amd-image >>
+    executor: amd64
     shell: /bin/bash -eo pipefail
     steps:
       - checkout
@@ -154,8 +153,7 @@ jobs:
       - integration-tests
 
   release:
-    machine:
-      image: << pipeline.parameters.linux-amd-image >>
+    executor: amd64
     steps:
       - checkout
       - cosign/install
@@ -181,14 +179,14 @@ jobs:
   smoke-test-containers:
     parameters:
       architecture:
-        type: executors
+        type: executor
     executor: << parameters.architecture >>
     steps:
       - checkout
       - run:
           name: run image and review logs 
           command: bash scripts/review_log_output.sh
-
+          
 # =================================== workflows
 
 workflows:
@@ -209,9 +207,10 @@ workflows:
           filters: *on-tag-release
 
       - smoke-test-containers:
+          name: smoke test containers by architecture
           matrix:
             parameters:
-              architecture: [ linux-amd64, linux-arm64 ]
+              architecture: [ amd64, arm64 ]
 
       # - smoke-test-linux-amd64:
       #     name: smoke test amd64 version

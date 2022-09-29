@@ -67,17 +67,6 @@ on-tag-release: &on-tag-release
 commands:
 
   set-environment:
-    parameters:
-      registry: 
-        description: dtr compatible registry
-        type: string
-        default: docker.io
-      registry-login:
-        type: string
-        default: DOCKER_LOGIN
-      registry-password:
-        type: string
-        default: DOCKER_PASSWORD
     steps:
       - op/install-op:
           os: Ubuntu

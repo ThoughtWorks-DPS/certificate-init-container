@@ -186,7 +186,7 @@ jobs:
       - run:
           name: run image and review logs 
           command: bash scripts/review_log_output.sh
-          
+
 # =================================== workflows
 
 workflows:
@@ -211,16 +211,5 @@ workflows:
           matrix:
             parameters:
               architecture: [ amd64, arm64 ]
-
-      # - smoke-test-linux-amd64:
-      #     name: smoke test amd64 version
-      #     requires:
-      #       - publish release version
-      #     filters: *on-tag-release
-
-      # - smoke-test-linux-arm64:
-      #     name: smoke test arm64 version
-      #     requires:
-      #       - publish release version
-      #     filters: *on-tag-release
-  
+          requires:
+            - publish release version

@@ -1,7 +1,7 @@
 #!/bin/bash
 
-docker pull twdps/sidecar-mutatingwebhook-init-container
-export RESULT=$(docker run -it twdps/sidecar-mutatingwebhook-init-container:latest | grep "MutatingWebhookConfiguration deployed with the following information")
+docker pull twdps/certificate-init-container
+export RESULT=$(docker run -it twdps/certificate-init-container:latest | grep "self-signed certificate requested with the following information"")
 if [[ "${RESULT}" == "" ]]; then
   echo 'Container did not log success'
   exit 1

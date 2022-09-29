@@ -97,13 +97,6 @@ commands:
           name: test for successful certificate creation
           command: bats test/certificate-init-container.bats
 
-  docker-run-test:
-    steps:
-      - run:
-          name: smoketest image build
-          command: |
-            docker pull twdps/certificate-init-container
-            docker run -it twdps/certificate-init-container:latest | grep "self-signed certificate requested with the following information"
 jobs:
 
   continuous-integration:

@@ -7,7 +7,7 @@
 
 @test "review init container logs" {
   run bash -c 'kubectl logs $(kubectl get pod -l app=tls-test-app -n ci-dev -o jsonpath="{.items[0].metadata.name}") -n ci-dev -c certificate-init-container'
-  [[ "${output}" =~ "commonName: init-container-test" ]]
+  [[ "${output}" =~ "Success:" ]]
 }
 
 @test "review tls-test-app logs" {

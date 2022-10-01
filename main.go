@@ -6,9 +6,10 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"github.com/rs/zerolog"
+	"github.com/rs/xid"
 	"encoding/pem"
 	"fmt"
-	"log"
 	"strings"
 	"path"
 	"math/big"
@@ -19,21 +20,22 @@ import (
 
 var (
 	commonName          string
-	organization		string
+	organization				string
 	organizationalUnit  string
-	country				string
-	province			string
+	country							string
+	province						string
 	locality            string  
-	streetAddress		string
-	postalCode			string
-	caDuration			int
+	streetAddress				string
+	postalCode					string
+	caDuration					int
 	additionalDNSNames  string
 	serviceNames        string
 	hostname            string
 	subdomain           string
 	namespace           string
 	clusterDomain     	string
-	certDir 			string
+	certDir 						string
+	log									zerolog.Logger
 )
 
 func main() {
@@ -57,26 +59,29 @@ func main() {
 	flag.StringVar(&certDir, "cert-dir", "/etc/tls", "The directory where the TLS certs should be written")
 	flag.Parse()
 
-	log.Println("self-signed certificate requested with the following information:")
-	log.Printf("commonName: %s", commonName)
-	log.Printf("organization: %s", organization)
-	log.Printf("organizationalUnit: %s", organizationalUnit)
-	log.Printf("country: %s", country)
-	log.Printf("province: %s", province)
-	log.Printf("locality: %s", locality)
-	log.Printf("streetAddress: %s", streetAddress)
-	log.Printf("postalCode: %s", postalCode)
-	log.Printf("additionalDNSNames: %s", additionalDNSNames)
-	log.Printf("service-names: %s",serviceNames)
-	log.Printf("hostname: %s",hostname)
-	log.Printf("subdomain: %s",subdomain)
-	log.Printf("namespace: %s",namespace)
-	log.Printf("clusterdomain: %s",clusterDomain)
-	log.Printf("ca-duration: %d",caDuration)
-	log.Printf("cert-dir: %s",certDir)
+	zerolog.SetGlobalLevel(zerolog.InfoLevel)
+	log = zerolog.New(os.Stdout).With().Str("correlationID", xid.New().String()).Str("container", "certificate-init-container").Str("common name", commonName).Timestamp().Logger()
+	
+	log.Info().Msg("Requested self-signed certificate")
+	log.Info().Str("--commonName=", commonName).Send()
+	log.Info().Str("--organization=", organization).Send()
+	log.Info().Str("--organizationalUnit=", organizationalUnit).Send()
+	log.Info().Str("--country=", country).Send()
+	log.Info().Str("--province=", province).Send()
+	log.Info().Str("--locality=", locality).Send()
+	log.Info().Str("--streetAddress=", streetAddress).Send()
+	log.Info().Str("--postalCode=", postalCode).Send()
+	log.Info().Str("--additionalDNSNames=", additionalDNSNames).Send()
+	log.Info().Str("--service-names=",serviceNames).Send()
+	log.Info().Str("--hostname=",hostname).Send()
+	log.Info().Str("--subdomain=",subdomain).Send()
+	log.Info().Str("--namespace=",namespace).Send()
+	log.Info().Str("--clusterdomain=",clusterDomain).Send()
+	log.Info().Int("--ca-duration=",caDuration).Send()
+	log.Info().Str("--cert-dir=",certDir).Send()
 
 	dnsNames := getDNSNames(additionalDNSNames, serviceNames, hostname, subdomain, namespace, clusterDomain)
-	log.Printf("DNS Names: %s", dnsNames)
+	log.Info().Str("DNS Names: ", fmt.Sprint(dnsNames)).Send()
 
 	// define the Certificate Authority (CA) certificate
 	ca := &x509.Certificate{
@@ -122,19 +127,19 @@ func main() {
 	// generate CA private key
 	caPrivateKey, err := rsa.GenerateKey(rand.Reader, 4096)
 	if err != nil {
-		log.Fatalf("failed to generate CA private key with err %s", err)
+		log.Fatal().Err(err).Msg("failed to generate CA private key")
 	}
 
 	// generate private key
 	privateKey, err := rsa.GenerateKey(rand.Reader, 4096)
 	if err != nil {
-		log.Fatalf("failed to generate private key to be signed with err %s", err)
+		log.Fatal().Err(err).Msg("failed to generate private key to be signed")
 	}
 
 	// create certificate, signing with the CA private key
 	certificate, err := x509.CreateCertificate(rand.Reader, cert, ca, &privateKey.PublicKey, caPrivateKey)
 	if err != nil {
-		log.Fatalf("failed to create signed private key with err %s", err)
+		log.Fatal().Err(err).Msg("failed to create signed private key")
 	}
 
 	// PEM encode the private key and certificate
@@ -153,19 +158,19 @@ func main() {
 	// write the signed certificate to the shared pod emptyDir
 	err = os.MkdirAll(certDir, 0666)
 	if err != nil {
-		log.Fatalf("unable to create folder %s: %s", certDir, err)
+		log.Fatal().Err(err).Msg("unable to create folder in emptyDir")
 	}
 
 	certificatePEMFile := path.Join(certDir, "tls.crt")
 	if err := os.WriteFile(certificatePEMFile, certificatePEM.Bytes(), 0644); err != nil {
-		log.Fatalf("unable to write private certificate to %s: %s", certificatePEMFile, err)
+		log.Fatal().Err(err).Msg("unable to write private certificate to emptyDir")
 	}
 
 	privateKeyPEMFile := path.Join(certDir, "tls.key")
 	if err := os.WriteFile(privateKeyPEMFile, privateKeyPEM.Bytes(), 0644); err != nil {
-		log.Fatalf("unable to write private key to %s: %s", privateKeyPEMFile, err)
+		log.Fatal().Err(err).Msg("unable to write private key to emptyDir")
 	}
-
+	log.Info().Msg("Success: certificate and private key created")
 }
 
 func getDNSNames(additionalDNSNames, serviceNames, hostname, subdomain, namespace, clusterDomain string) []string {
@@ -191,7 +196,7 @@ func getDNSNames(additionalDNSNames, serviceNames, hostname, subdomain, namespac
 }
 
 func serviceDomainName(name, namespace, domain string) string {
-	log.Printf("service-domain-name: %s", fmt.Sprintf("%s.%s.%s", name, namespace, domain))
+	log.Info().Str("service-domain-name: ", fmt.Sprintf("%s.%s.%s", name, namespace, domain)).Send()
 	return fmt.Sprintf("%s.%s.svc.%s", name, namespace, domain)
 }
 
@@ -200,6 +205,6 @@ func podHeadlessDomainName(hostname, subdomain, namespace, domain string) string
 	if hostname == "" || subdomain == "" {
 		return ""
 	}
-	log.Printf("pod-headless-domain-name: %s", fmt.Sprintf("%s.%s.%s.%s", hostname, subdomain, namespace, domain))
+	log.Info().Str("pod-headless-domain-name: ", fmt.Sprintf("%s.%s.%s.%s", hostname, subdomain, namespace, domain)).Send()
 	return fmt.Sprintf("%s.%s.%s.svc.%s", hostname, subdomain, namespace, domain)
 }

@@ -101,9 +101,12 @@ The other containers in the pod can now access the certificate files and use as 
 
 ### Development
 
-To test certificate generation provide a cert directory override to have the files written locally.
+Run the following to test certificate generation, using pwd as the directory override to have the files written locally.
 ```bash
-go run main.go -cert-dir=./
+go run main.go --common-name=twdps.io --organization='Thoughtworks, Inc.' --organizational-unit=EMPC \
+--country=USA --province=Illinois --locality=Chicago --street-address='200 E Randolph St 25th Floor' \
+--postal-code=60601 --ca-duration=3 --additional-dnsnames=www.twdps.io --service-names=init-container \
+--namespace=opa-system -cert-dir=./
 ```
 
 This is an adaptation of Kelsey Hightower's [certificate-init-container](https://github.com/kelseyhightower/certificate-init-container). _Note: The darwin build is a universal binary for Apple Silicon support._   

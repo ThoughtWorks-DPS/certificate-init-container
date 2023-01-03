@@ -2,7 +2,7 @@
 version: 2.1
 
 orbs:
-  op: twdps/onepassword@1.1.0
+  op: twdps/onepassword@1.0.0
   cosign: twdps/cosign@0.1.0
   kube: twdps/kube-ops@0.3.0
   do: twdps/pipeline-events@0.2.0
@@ -14,7 +14,7 @@ executors:
 
   amd64:
     machine:
-      image: ubuntu-2204:2022.07.1
+      image: ubuntu-2204:2022.10.2
   arm64:
     machine:
       image: ubuntu-2004:current

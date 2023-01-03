@@ -51,6 +51,7 @@ initContainers:
         - "--namespace=$(NAMESPACE)"
         - "--cluster-domain=cluster.local"                     # default is cluster.local
         - "--cert-dir=/etc/tls"                                # default is /etc/tls 
+        - "--create-secret=true"                               # create kubernetes secret with certificate info, default is false
         volumeMounts:
         - name: tls
             mountPath: /etc/tls

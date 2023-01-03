@@ -89,8 +89,7 @@ commands:
 jobs:
 
   continuous-integration:
-    machine:
-      image: ubuntu-2204:current
+    executor: amd64
     shell: /bin/bash -eo pipefail
     steps:
       - checkout
@@ -136,8 +135,7 @@ jobs:
       - integration-tests
 
   release:
-    machine:
-      image: ubuntu-2204:current
+    executor: amd64
     steps:
       - checkout
       - cosign/install

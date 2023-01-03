@@ -11,11 +11,17 @@ import (
 	"encoding/pem"
 	"fmt"
 	"strings"
+	"strconv"
 	"path"
 	"math/big"
 	"os"
 	"time"
 	"flag"
+	coreV1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"context"
+	"k8s.io/client-go/kubernetes"
 )
 
 var (
@@ -35,6 +41,7 @@ var (
 	namespace           string
 	clusterDomain     	string
 	certDir 						string
+	createSecret				bool
 	log									zerolog.Logger
 )
 
@@ -57,6 +64,7 @@ func main() {
 	flag.StringVar(&namespace, "namespace", "", "namespace as defined by pod.metadata.namespace")
 	flag.StringVar(&clusterDomain, "cluster-domain", "cluster.local", "Kubernetes cluster domain")
 	flag.StringVar(&certDir, "cert-dir", "/etc/tls", "The directory where the TLS certs should be written")
+	flag.BoolVar(&createSecret, "create-secret", false, "Create kubernetes secret from certificate and private key data")
 	flag.Parse()
 
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
@@ -79,6 +87,7 @@ func main() {
 	log.Info().Str("--clusterdomain=",clusterDomain).Send()
 	log.Info().Int("--ca-duration=",caDuration).Send()
 	log.Info().Str("--cert-dir=",certDir).Send()
+	log.Info().Str("--create-secret=", strconv.FormatBool(createSecret)).Send()
 
 	dnsNames := getDNSNames(additionalDNSNames, serviceNames, hostname, subdomain, namespace, clusterDomain)
 	log.Info().Str("DNS Names: ", fmt.Sprint(dnsNames)).Send()
@@ -171,6 +180,54 @@ func main() {
 		log.Fatal().Err(err).Msg("unable to write private key to emptyDir")
 	}
 	log.Info().Msg("Success: certificate and private key created")
+
+	// create kubernetes Secret with certificate and private key data, if requested
+	if createSecret {
+		log.Info().Msg("create kubernetes secret with certificate and private key data")
+		secretData := map[string][]byte{
+			"tls.crt": certificatePEM.Bytes(),
+			"tls.key": privateKeyPEM.Bytes(),
+		}
+		secretName := serviceNames + "-certificate"
+		certificateSecret := coreV1.Secret{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "Secret",
+				APIVersion: "v1",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      secretName,
+				Namespace: namespace,
+			},
+			Data: secretData,
+		}
+	
+		// create kubernetes api client
+		config := ctrl.GetConfigOrDie()
+		kubeClient, err := kubernetes.NewForConfig(config)
+		if err != nil {
+			log.Fatal().Err(err).Msg("failed to set go-client")
+		}
+		// fetch the list of existing secrets in the namespace
+		NSSecretList, err := kubeClient.CoreV1().Secrets(namespace).List(context.Background(), metav1.ListOptions{})
+		if err != nil {
+			log.Fatal().Err(err).Msg("failed to create secret")
+		}
+		// if the requested secret already exists, get the ResourceVersion so it can be updated
+		certificateSecret.ObjectMeta.ResourceVersion = secretExists(NSSecretList, secretName)
+	
+		// create, or update if already exists
+		if certificateSecret.ObjectMeta.ResourceVersion != "" {
+			if _, err = kubeClient.CoreV1().Secrets(namespace).Update(context.Background(), &certificateSecret, metav1.UpdateOptions{}); err != nil {
+				log.Fatal().Err(err).Msg("failed to update secret")
+			}
+			log.Info().Msg("Success: updated certificate secret")
+		} else {
+			if _, err = kubeClient.CoreV1().Secrets(namespace).Create(context.Background(), &certificateSecret, metav1.CreateOptions{}); err != nil {
+				log.Fatal().Err(err).Msg("failed to create secret")
+			}
+			log.Info().Msg("Success: created certificate secret")
+		}
+	}
 }
 
 func getDNSNames(additionalDNSNames, serviceNames, hostname, subdomain, namespace, clusterDomain string) []string {
@@ -207,4 +264,18 @@ func podHeadlessDomainName(hostname, subdomain, namespace, domain string) string
 	}
 	log.Info().Str("pod-headless-domain-name: ", fmt.Sprintf("%s.%s.%s.%s", hostname, subdomain, namespace, domain)).Send()
 	return fmt.Sprintf("%s.%s.%s.svc.%s", hostname, subdomain, namespace, domain)
+}
+
+// search list of existing namespace secrets for match
+func secretExists(currentNSSecrets *coreV1.SecretList, secretName string) string {
+	log.Info().Str("checking if secret already exists: ", secretName)
+	for i := range currentNSSecrets.Items {
+		log.Trace().Str("searching:", currentNSSecrets.Items[i].ObjectMeta.Name)
+		if currentNSSecrets.Items[i].ObjectMeta.Name == secretName {
+			log.Info().Msg("found, update with ResourceVersion")
+			return currentNSSecrets.Items[i].ObjectMeta.ResourceVersion
+		}
+	}
+	log.Info().Msg("not found, create new certificate secret")
+	return ""
 }

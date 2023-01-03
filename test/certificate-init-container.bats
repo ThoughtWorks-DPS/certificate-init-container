@@ -19,3 +19,8 @@
   run bash -c 'kubectl exec -it $(kubectl get pod -l app=tls-test-app -n ci-dev -o jsonpath="{.items[0].metadata.name}") -n ci-dev -- ls -la /etc/tls'
   [[ "${output}" =~ "tls.crt" ]]
 }
+
+@test "confirm kubernetes Secret was created" {
+  run bash -c 'kubectl get secrets -n ci-dev'
+  [[ "${output}" =~ "init-container-test-certificate" ]]
+}

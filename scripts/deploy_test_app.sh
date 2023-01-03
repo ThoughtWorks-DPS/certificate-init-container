@@ -45,7 +45,8 @@ spec:
             - "--postal-code=60601"
             - "--service-names=init-container-test"
             - "--namespace=\$(NAMESPACE)"
-            - "--cert-dir=/etc/tls"            
+            - "--cert-dir=/etc/tls"   
+            - "--create-secret=true"         
 
           volumeMounts:
             - name: tls

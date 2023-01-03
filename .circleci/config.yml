@@ -14,10 +14,10 @@ executors:
 
   amd64:
     machine:
-      image: ubuntu-2004
+      image: ubuntu-2204:2022.10.2
   arm64:
     machine:
-      image: ubuntu-2004
+      image: ubuntu-2004:current
     resource_class: arm.medium
 
 parameters:

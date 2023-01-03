@@ -14,7 +14,7 @@ executors:
 
   amd64:
     machine:
-      image: ubuntu-2204
+      image: ubuntu-2004
   arm64:
     machine:
       image: ubuntu-2004

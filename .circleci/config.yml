@@ -14,7 +14,7 @@ executors:
 
   amd64:
     machine:
-      image: ubuntu-2204:2022.10.2
+      image: ubuntu-2204:2022.07.1
   arm64:
     machine:
       image: ubuntu-2004:current

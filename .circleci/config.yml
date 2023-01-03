@@ -123,9 +123,9 @@ jobs:
           name: lint
           command: |
             golangci-lint run ./...
-      - run:
-          name: golang specific vulnerability assessment
-          command: govulncheck ./...
+      # - run:
+      #     name: golang specific vulnerability assessment
+      #     command: govulncheck ./...
       - run:
           name: build dev image
           command: make build

@@ -111,3 +111,9 @@ go run main.go --common-name=twdps.io --organization='Thoughtworks, Inc.' --orga
 ```
 
 This is an adaptation of Kelsey Hightower's [certificate-init-container](https://github.com/kelseyhightower/certificate-init-container). _Note: The darwin build is a universal binary for Apple Silicon support._   
+
+#### TODO
+
+- update to allow custom management of version of golang used
+- assess accuracy of multi-architecture goreleaser process
+- govulncheck has been disabled. Need both ability to customize version of go and way to ignore accepted vulnerabilities
